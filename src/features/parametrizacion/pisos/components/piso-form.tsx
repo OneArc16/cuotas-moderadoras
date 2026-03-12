@@ -1,5 +1,8 @@
 "use client";
 
+import { useTransition } from "react";
+import { toast } from "sonner";
+import { createPiso } from "@/features/parametrizacion/pisos/lib/create-piso";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +20,7 @@ const pisoFormSchema = z.object({
 type PisoFormValues = z.infer<typeof pisoFormSchema>;
 
 export function PisoForm() {
+  const [isPending, startTransition] = useTransition();
   const {
     register,
     handleSubmit,
@@ -28,9 +32,18 @@ export function PisoForm() {
     },
   });
 
-  function onSubmit(values: PisoFormValues) {
-    console.log(values);
-  }
+    function onSubmit(values: PisoFormValues) {
+    startTransition(async () => {
+        try {
+        await createPiso(values);
+        toast.success("Piso creado correctamente");
+        } catch (error) {
+        toast.error(
+            error instanceof Error ? error.message : "No se pudo crear el piso"
+        );
+        }
+    });
+    }
 
   return (
     <div className="rounded-xl border p-4">
@@ -43,7 +56,9 @@ export function PisoForm() {
           ) : null}
         </div>
 
-        <Button type="submit">Guardar piso</Button>
+        <Button type="submit" disabled={isPending}>
+            {isPending ? "Guardando..." : "Guardar piso"}
+        </Button>
       </form>
     </div>
   );
