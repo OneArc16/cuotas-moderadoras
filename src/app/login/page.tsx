@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { ShieldCheck, WalletCards, ReceiptText } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
@@ -32,6 +34,8 @@ export default function LoginPage() {
     }
 
     toast.success("Sesión iniciada correctamente");
+    router.replace("/");
+    router.refresh();
   }
 
   return (
