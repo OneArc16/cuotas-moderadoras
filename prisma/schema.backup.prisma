@@ -1,0 +1,439 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVO
+  INACTIVO
+  BLOQUEADO
+}
+
+enum GenericStatus {
+  ACTIVO
+  INACTIVO
+}
+
+enum TipoDocumento {
+  CC
+  CE
+  TI
+  RC
+  PASAPORTE
+  NIT
+  OTRO
+}
+
+enum ContratoTipo {
+  EPS
+  PARTICULAR
+  OTRO
+}
+
+enum TipoCobro {
+  CUOTA_MODERADORA
+  PARTICULAR
+}
+
+enum JornadaCajaEstado {
+  ABIERTA
+  CERRADA
+  REABIERTA
+}
+
+enum SesionOperativaEstado {
+  ACTIVA
+  CERRADA
+}
+
+enum AdmisionEstado {
+  REGISTRADA
+  ANULADA
+}
+
+enum DescuentoTipo {
+  NINGUNO
+  PORCENTAJE
+  VALOR_FIJO
+}
+
+enum MovimientoTipo {
+  COBRO
+  DEVOLUCION
+  REVERSO_ANULACION
+}
+
+enum MovimientoNaturaleza {
+  ENTRADA
+  SALIDA
+}
+
+model Rol {
+  id          String        @id @default(uuid())
+  nombre      String        @unique
+  descripcion String?
+  estado      GenericStatus @default(ACTIVO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  usuarios Usuario[]
+  permisos RolPermiso[]
+}
+
+model Permiso {
+  id            String   @id @default(uuid())
+  codigo        String   @unique
+  nombre        String
+  moduloSistema String
+  descripcion   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  roles RolPermiso[]
+}
+
+model RolPermiso {
+  id        String @id @default(uuid())
+  rolId     String
+  permisoId String
+
+  rol     Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@unique([rolId, permisoId])
+}
+
+model Usuario {
+  id              String        @id @default(uuid())
+  tipoDocumento   TipoDocumento
+  numeroDocumento String        @unique
+  primerNombre    String
+  segundoNombre   String?
+  primerApellido  String
+  segundoApellido String?
+  telefono        String?
+  email           String?       @unique
+  username        String        @unique
+  passwordHash    String
+  estado          UserStatus    @default(ACTIVO)
+  rolId           String
+  ultimoLoginAt   DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  rol                   Rol               @relation(fields: [rolId], references: [id])
+  jornadasAbiertas      JornadaCaja[]     @relation("JornadaCajaAbiertaPor")
+  jornadasCerradas      JornadaCaja[]     @relation("JornadaCajaCerradaPor")
+  jornadasReabiertas    JornadaCaja[]     @relation("JornadaCajaReabiertaPor")
+  sesionesOperativas    SesionOperativa[]
+  admisionesRegistradas Admision[]        @relation("AdmisionRegistradaPor")
+  admisionesAnuladas    Admision[]        @relation("AdmisionAnuladaPor")
+  movimientos           Movimiento[]
+  auditorias            Auditoria[]
+}
+
+model Paciente {
+  id              String        @id @default(uuid())
+  tipoDocumento   TipoDocumento
+  numeroDocumento String        @unique
+  primerNombre    String
+  segundoNombre   String?
+  primerApellido  String
+  segundoApellido String?
+  telefono        String?
+  estado          GenericStatus @default(ACTIVO)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  admisiones Admision[]
+}
+
+model Contrato {
+  id          String        @id @default(uuid())
+  nombre      String        @unique
+  tipo        ContratoTipo
+  descripcion String?
+  estado      GenericStatus @default(ACTIVO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  categorias ContratoCategoriaAfiliacion[]
+  tarifas    TarifaServicio[]
+  admisiones Admision[]
+}
+
+model CategoriaAfiliacion {
+  id          String        @id @default(uuid())
+  codigo      String        @unique
+  nombre      String
+  descripcion String?
+  estado      GenericStatus @default(ACTIVO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  contratos  ContratoCategoriaAfiliacion[]
+  tarifas    TarifaServicio[]
+  admisiones Admision[]
+}
+
+model ContratoCategoriaAfiliacion {
+  id                    String        @id @default(uuid())
+  contratoId            String
+  categoriaAfiliacionId String
+  estado                GenericStatus @default(ACTIVO)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  contrato            Contrato            @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  categoriaAfiliacion CategoriaAfiliacion @relation(fields: [categoriaAfiliacionId], references: [id], onDelete: Cascade)
+
+  @@unique([contratoId, categoriaAfiliacionId])
+}
+
+model Servicio {
+  id          String        @id @default(uuid())
+  codigo      String?       @unique
+  nombre      String        @unique
+  descripcion String?
+  estado      GenericStatus @default(ACTIVO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tarifas    TarifaServicio[]
+  admisiones Admision[]
+}
+
+model TarifaServicio {
+  id                    String        @id @default(uuid())
+  servicioId            String
+  contratoId            String
+  categoriaAfiliacionId String?
+  tipoCobro             TipoCobro
+  valor                 Decimal       @db.Decimal(12, 2)
+  fechaInicioVigencia   DateTime
+  fechaFinVigencia      DateTime?
+  estado                GenericStatus @default(ACTIVO)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  servicio            Servicio             @relation(fields: [servicioId], references: [id])
+  contrato            Contrato             @relation(fields: [contratoId], references: [id])
+  categoriaAfiliacion CategoriaAfiliacion? @relation(fields: [categoriaAfiliacionId], references: [id])
+
+  admisiones Admision[]
+}
+
+model Piso {
+  id          String        @id @default(uuid())
+  nombre      String        @unique
+  descripcion String?
+  estado      GenericStatus @default(ACTIVO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  modulos     ModuloAtencion[]
+  cajas       Caja[]
+  sesiones    SesionOperativa[]
+  admisiones  Admision[]
+  movimientos Movimiento[]
+}
+
+model ModuloAtencion {
+  id        String        @id @default(uuid())
+  nombre    String
+  codigo    String        @unique
+  pisoId    String
+  estado    GenericStatus @default(ACTIVO)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  piso        Piso              @relation(fields: [pisoId], references: [id])
+  sesiones    SesionOperativa[]
+  admisiones  Admision[]
+  movimientos Movimiento[]
+
+  @@unique([nombre, pisoId])
+}
+
+model Caja {
+  id        String        @id @default(uuid())
+  nombre    String        @unique
+  pisoId    String
+  estado    GenericStatus @default(ACTIVO)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  piso        Piso              @relation(fields: [pisoId], references: [id])
+  jornadas    JornadaCaja[]
+  sesiones    SesionOperativa[]
+  admisiones  Admision[]
+  movimientos Movimiento[]
+}
+
+model JornadaCaja {
+  id                    String            @id @default(uuid())
+  cajaId                String
+  fechaOperativa        DateTime
+  estado                JornadaCajaEstado @default(ABIERTA)
+  baseInicial           Decimal           @db.Decimal(12, 2)
+  abiertaPorUsuarioId   String
+  abiertaAt             DateTime
+  cerradaPorUsuarioId   String?
+  cerradaAt             DateTime?
+  totalCobros           Decimal           @default(0) @db.Decimal(12, 2)
+  totalDevoluciones     Decimal           @default(0) @db.Decimal(12, 2)
+  saldoEsperado         Decimal           @default(0) @db.Decimal(12, 2)
+  efectivoContado       Decimal?          @db.Decimal(12, 2)
+  diferenciaCierre      Decimal?          @db.Decimal(12, 2)
+  observacionApertura   String?
+  observacionCierre     String?
+  reabiertaPorUsuarioId String?
+  reabiertaAt           DateTime?
+  motivoReapertura      String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  caja                Caja     @relation(fields: [cajaId], references: [id])
+  abiertaPorUsuario   Usuario  @relation("JornadaCajaAbiertaPor", fields: [abiertaPorUsuarioId], references: [id])
+  cerradaPorUsuario   Usuario? @relation("JornadaCajaCerradaPor", fields: [cerradaPorUsuarioId], references: [id])
+  reabiertaPorUsuario Usuario? @relation("JornadaCajaReabiertaPor", fields: [reabiertaPorUsuarioId], references: [id])
+
+  admisiones  Admision[]
+  movimientos Movimiento[]
+}
+
+model SesionOperativa {
+  id               String                @id @default(uuid())
+  usuarioId        String
+  moduloAtencionId String
+  pisoId           String
+  cajaId           String
+  fechaOperativa   DateTime
+  horaInicio       DateTime
+  horaFin          DateTime?
+  estado           SesionOperativaEstado @default(ACTIVA)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  usuario        Usuario        @relation(fields: [usuarioId], references: [id])
+  moduloAtencion ModuloAtencion @relation(fields: [moduloAtencionId], references: [id])
+  piso           Piso           @relation(fields: [pisoId], references: [id])
+  caja           Caja           @relation(fields: [cajaId], references: [id])
+
+  admisiones Admision[]
+}
+
+model Admision {
+  id                    String         @id @default(uuid())
+  consecutivo           Int?           @unique
+  fechaHora             DateTime       @default(now())
+  pacienteId            String
+  servicioId            String
+  contratoId            String
+  categoriaAfiliacionId String?
+  tipoCobro             TipoCobro
+  estado                AdmisionEstado @default(REGISTRADA)
+  motivoEstado          String?
+
+  pisoId                 String
+  moduloAtencionId       String
+  cajaId                 String
+  jornadaCajaId          String
+  sesionOperativaId      String
+  registradaPorUsuarioId String
+
+  pacienteNombreSnapshot            String
+  pacienteDocumentoSnapshot         String
+  servicioNombreSnapshot            String
+  contratoNombreSnapshot            String
+  categoriaAfiliacionNombreSnapshot String?
+  tipoCobroSnapshot                 TipoCobro
+  tarifaIdAplicada                  String?
+
+  valorBase          Decimal       @db.Decimal(12, 2)
+  descuentoTipo      DescuentoTipo @default(NINGUNO)
+  descuentoValor     Decimal       @default(0) @db.Decimal(12, 2)
+  descuentoCalculado Decimal       @default(0) @db.Decimal(12, 2)
+  razonDescuento     String?
+  valorFinalCobrado  Decimal       @db.Decimal(12, 2)
+  valorRecibido      Decimal       @db.Decimal(12, 2)
+  valorDevuelto      Decimal       @default(0) @db.Decimal(12, 2)
+
+  anuladaPorUsuarioId String?
+  anuladaAt           DateTime?
+  motivoAnulacion     String?
+
+  observacion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  paciente             Paciente             @relation(fields: [pacienteId], references: [id])
+  servicio             Servicio             @relation(fields: [servicioId], references: [id])
+  contrato             Contrato             @relation(fields: [contratoId], references: [id])
+  categoriaAfiliacion  CategoriaAfiliacion? @relation(fields: [categoriaAfiliacionId], references: [id])
+  tarifaAplicada       TarifaServicio?      @relation(fields: [tarifaIdAplicada], references: [id])
+  piso                 Piso                 @relation(fields: [pisoId], references: [id])
+  moduloAtencion       ModuloAtencion       @relation(fields: [moduloAtencionId], references: [id])
+  caja                 Caja                 @relation(fields: [cajaId], references: [id])
+  jornadaCaja          JornadaCaja          @relation(fields: [jornadaCajaId], references: [id])
+  sesionOperativa      SesionOperativa      @relation(fields: [sesionOperativaId], references: [id])
+  registradaPorUsuario Usuario              @relation("AdmisionRegistradaPor", fields: [registradaPorUsuarioId], references: [id])
+  anuladaPorUsuario    Usuario?             @relation("AdmisionAnuladaPor", fields: [anuladaPorUsuarioId], references: [id])
+
+  movimientos Movimiento[]
+
+  @@index([fechaHora])
+  @@index([pacienteId, fechaHora])
+}
+
+model Movimiento {
+  id               String               @id @default(uuid())
+  admisionId       String
+  jornadaCajaId    String
+  cajaId           String
+  pisoId           String
+  moduloAtencionId String
+  usuarioId        String
+  tipoMovimiento   MovimientoTipo
+  naturaleza       MovimientoNaturaleza
+  valor            Decimal              @db.Decimal(12, 2)
+  descripcion      String?
+  referencia       String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  admision       Admision       @relation(fields: [admisionId], references: [id])
+  jornadaCaja    JornadaCaja    @relation(fields: [jornadaCajaId], references: [id])
+  caja           Caja           @relation(fields: [cajaId], references: [id])
+  piso           Piso           @relation(fields: [pisoId], references: [id])
+  moduloAtencion ModuloAtencion @relation(fields: [moduloAtencionId], references: [id])
+  usuario        Usuario        @relation(fields: [usuarioId], references: [id])
+
+  @@index([createdAt])
+}
+
+model Auditoria {
+  id                String   @id @default(uuid())
+  usuarioId         String
+  accion            String
+  entidad           String
+  entidadId         String
+  detalle           String?
+  valorAnteriorJson Json?
+  valorNuevoJson    Json?
+  ip                String?
+  createdAt         DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([createdAt])
+}
