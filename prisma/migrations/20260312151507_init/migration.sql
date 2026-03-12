@@ -33,7 +33,7 @@ CREATE TYPE "MovimientoNaturaleza" AS ENUM ('ENTRADA', 'SALIDA');
 
 -- CreateTable
 CREATE TABLE "Rol" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "nombre" TEXT NOT NULL,
     "descripcion" TEXT,
     "estado" "GenericStatus" NOT NULL DEFAULT 'ACTIVO',
@@ -45,7 +45,7 @@ CREATE TABLE "Rol" (
 
 -- CreateTable
 CREATE TABLE "Permiso" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "codigo" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
     "moduloSistema" TEXT NOT NULL,
@@ -58,16 +58,16 @@ CREATE TABLE "Permiso" (
 
 -- CreateTable
 CREATE TABLE "RolPermiso" (
-    "id" TEXT NOT NULL,
-    "rolId" TEXT NOT NULL,
-    "permisoId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "rolId" INTEGER NOT NULL,
+    "permisoId" INTEGER NOT NULL,
 
     CONSTRAINT "RolPermiso_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Usuario" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "tipoDocumento" "TipoDocumento" NOT NULL,
     "numeroDocumento" TEXT NOT NULL,
     "primerNombre" TEXT NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE "Usuario" (
     "username" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "estado" "UserStatus" NOT NULL DEFAULT 'ACTIVO',
-    "rolId" TEXT NOT NULL,
+    "rolId" INTEGER NOT NULL,
     "ultimoLoginAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -89,7 +89,7 @@ CREATE TABLE "Usuario" (
 
 -- CreateTable
 CREATE TABLE "Paciente" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "tipoDocumento" "TipoDocumento" NOT NULL,
     "numeroDocumento" TEXT NOT NULL,
     "primerNombre" TEXT NOT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE "Paciente" (
 
 -- CreateTable
 CREATE TABLE "Contrato" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "nombre" TEXT NOT NULL,
     "tipo" "ContratoTipo" NOT NULL,
     "descripcion" TEXT,
@@ -119,7 +119,7 @@ CREATE TABLE "Contrato" (
 
 -- CreateTable
 CREATE TABLE "CategoriaAfiliacion" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "codigo" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
     "descripcion" TEXT,
@@ -132,9 +132,9 @@ CREATE TABLE "CategoriaAfiliacion" (
 
 -- CreateTable
 CREATE TABLE "ContratoCategoriaAfiliacion" (
-    "id" TEXT NOT NULL,
-    "contratoId" TEXT NOT NULL,
-    "categoriaAfiliacionId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "contratoId" INTEGER NOT NULL,
+    "categoriaAfiliacionId" INTEGER NOT NULL,
     "estado" "GenericStatus" NOT NULL DEFAULT 'ACTIVO',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -144,7 +144,7 @@ CREATE TABLE "ContratoCategoriaAfiliacion" (
 
 -- CreateTable
 CREATE TABLE "Servicio" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "codigo" TEXT,
     "nombre" TEXT NOT NULL,
     "descripcion" TEXT,
@@ -157,10 +157,10 @@ CREATE TABLE "Servicio" (
 
 -- CreateTable
 CREATE TABLE "TarifaServicio" (
-    "id" TEXT NOT NULL,
-    "servicioId" TEXT NOT NULL,
-    "contratoId" TEXT NOT NULL,
-    "categoriaAfiliacionId" TEXT,
+    "id" SERIAL NOT NULL,
+    "servicioId" INTEGER NOT NULL,
+    "contratoId" INTEGER NOT NULL,
+    "categoriaAfiliacionId" INTEGER,
     "tipoCobro" "TipoCobro" NOT NULL,
     "valor" DECIMAL(12,2) NOT NULL,
     "fechaInicioVigencia" TIMESTAMP(3) NOT NULL,
@@ -174,7 +174,7 @@ CREATE TABLE "TarifaServicio" (
 
 -- CreateTable
 CREATE TABLE "Piso" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "nombre" TEXT NOT NULL,
     "descripcion" TEXT,
     "estado" "GenericStatus" NOT NULL DEFAULT 'ACTIVO',
@@ -186,10 +186,10 @@ CREATE TABLE "Piso" (
 
 -- CreateTable
 CREATE TABLE "ModuloAtencion" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "nombre" TEXT NOT NULL,
     "codigo" TEXT NOT NULL,
-    "pisoId" TEXT NOT NULL,
+    "pisoId" INTEGER NOT NULL,
     "estado" "GenericStatus" NOT NULL DEFAULT 'ACTIVO',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -199,9 +199,9 @@ CREATE TABLE "ModuloAtencion" (
 
 -- CreateTable
 CREATE TABLE "Caja" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "nombre" TEXT NOT NULL,
-    "pisoId" TEXT NOT NULL,
+    "pisoId" INTEGER NOT NULL,
     "estado" "GenericStatus" NOT NULL DEFAULT 'ACTIVO',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -211,14 +211,14 @@ CREATE TABLE "Caja" (
 
 -- CreateTable
 CREATE TABLE "JornadaCaja" (
-    "id" TEXT NOT NULL,
-    "cajaId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "cajaId" INTEGER NOT NULL,
     "fechaOperativa" TIMESTAMP(3) NOT NULL,
     "estado" "JornadaCajaEstado" NOT NULL DEFAULT 'ABIERTA',
     "baseInicial" DECIMAL(12,2) NOT NULL,
-    "abiertaPorUsuarioId" TEXT NOT NULL,
+    "abiertaPorUsuarioId" INTEGER NOT NULL,
     "abiertaAt" TIMESTAMP(3) NOT NULL,
-    "cerradaPorUsuarioId" TEXT,
+    "cerradaPorUsuarioId" INTEGER,
     "cerradaAt" TIMESTAMP(3),
     "totalCobros" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "totalDevoluciones" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -227,7 +227,7 @@ CREATE TABLE "JornadaCaja" (
     "diferenciaCierre" DECIMAL(12,2),
     "observacionApertura" TEXT,
     "observacionCierre" TEXT,
-    "reabiertaPorUsuarioId" TEXT,
+    "reabiertaPorUsuarioId" INTEGER,
     "reabiertaAt" TIMESTAMP(3),
     "motivoReapertura" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -238,11 +238,11 @@ CREATE TABLE "JornadaCaja" (
 
 -- CreateTable
 CREATE TABLE "SesionOperativa" (
-    "id" TEXT NOT NULL,
-    "usuarioId" TEXT NOT NULL,
-    "moduloAtencionId" TEXT NOT NULL,
-    "pisoId" TEXT NOT NULL,
-    "cajaId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "usuarioId" INTEGER NOT NULL,
+    "moduloAtencionId" INTEGER NOT NULL,
+    "pisoId" INTEGER NOT NULL,
+    "cajaId" INTEGER NOT NULL,
     "fechaOperativa" TIMESTAMP(3) NOT NULL,
     "horaInicio" TIMESTAMP(3) NOT NULL,
     "horaFin" TIMESTAMP(3),
@@ -255,29 +255,29 @@ CREATE TABLE "SesionOperativa" (
 
 -- CreateTable
 CREATE TABLE "Admision" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "consecutivo" INTEGER,
     "fechaHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "pacienteId" TEXT NOT NULL,
-    "servicioId" TEXT NOT NULL,
-    "contratoId" TEXT NOT NULL,
-    "categoriaAfiliacionId" TEXT,
+    "pacienteId" INTEGER NOT NULL,
+    "servicioId" INTEGER NOT NULL,
+    "contratoId" INTEGER NOT NULL,
+    "categoriaAfiliacionId" INTEGER,
     "tipoCobro" "TipoCobro" NOT NULL,
     "estado" "AdmisionEstado" NOT NULL DEFAULT 'REGISTRADA',
     "motivoEstado" TEXT,
-    "pisoId" TEXT NOT NULL,
-    "moduloAtencionId" TEXT NOT NULL,
-    "cajaId" TEXT NOT NULL,
-    "jornadaCajaId" TEXT NOT NULL,
-    "sesionOperativaId" TEXT NOT NULL,
-    "registradaPorUsuarioId" TEXT NOT NULL,
+    "pisoId" INTEGER NOT NULL,
+    "moduloAtencionId" INTEGER NOT NULL,
+    "cajaId" INTEGER NOT NULL,
+    "jornadaCajaId" INTEGER NOT NULL,
+    "sesionOperativaId" INTEGER NOT NULL,
+    "registradaPorUsuarioId" INTEGER NOT NULL,
     "pacienteNombreSnapshot" TEXT NOT NULL,
     "pacienteDocumentoSnapshot" TEXT NOT NULL,
     "servicioNombreSnapshot" TEXT NOT NULL,
     "contratoNombreSnapshot" TEXT NOT NULL,
     "categoriaAfiliacionNombreSnapshot" TEXT,
     "tipoCobroSnapshot" "TipoCobro" NOT NULL,
-    "tarifaIdAplicada" TEXT,
+    "tarifaIdAplicada" INTEGER,
     "valorBase" DECIMAL(12,2) NOT NULL,
     "descuentoTipo" "DescuentoTipo" NOT NULL DEFAULT 'NINGUNO',
     "descuentoValor" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -286,7 +286,7 @@ CREATE TABLE "Admision" (
     "valorFinalCobrado" DECIMAL(12,2) NOT NULL,
     "valorRecibido" DECIMAL(12,2) NOT NULL,
     "valorDevuelto" DECIMAL(12,2) NOT NULL DEFAULT 0,
-    "anuladaPorUsuarioId" TEXT,
+    "anuladaPorUsuarioId" INTEGER,
     "anuladaAt" TIMESTAMP(3),
     "motivoAnulacion" TEXT,
     "observacion" TEXT,
@@ -298,13 +298,13 @@ CREATE TABLE "Admision" (
 
 -- CreateTable
 CREATE TABLE "Movimiento" (
-    "id" TEXT NOT NULL,
-    "admisionId" TEXT NOT NULL,
-    "jornadaCajaId" TEXT NOT NULL,
-    "cajaId" TEXT NOT NULL,
-    "pisoId" TEXT NOT NULL,
-    "moduloAtencionId" TEXT NOT NULL,
-    "usuarioId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "admisionId" INTEGER NOT NULL,
+    "jornadaCajaId" INTEGER NOT NULL,
+    "cajaId" INTEGER NOT NULL,
+    "pisoId" INTEGER NOT NULL,
+    "moduloAtencionId" INTEGER NOT NULL,
+    "usuarioId" INTEGER NOT NULL,
     "tipoMovimiento" "MovimientoTipo" NOT NULL,
     "naturaleza" "MovimientoNaturaleza" NOT NULL,
     "valor" DECIMAL(12,2) NOT NULL,
@@ -318,11 +318,11 @@ CREATE TABLE "Movimiento" (
 
 -- CreateTable
 CREATE TABLE "Auditoria" (
-    "id" TEXT NOT NULL,
-    "usuarioId" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "usuarioId" INTEGER NOT NULL,
     "accion" TEXT NOT NULL,
     "entidad" TEXT NOT NULL,
-    "entidadId" TEXT NOT NULL,
+    "entidadId" INTEGER NOT NULL,
     "detalle" TEXT,
     "valorAnteriorJson" JSONB,
     "valorNuevoJson" JSONB,
@@ -330,6 +330,66 @@ CREATE TABLE "Auditoria" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Auditoria_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "emailVerified" BOOLEAN NOT NULL DEFAULT false,
+    "image" TEXT,
+    "username" TEXT,
+    "displayUsername" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "user_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "session" (
+    "id" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "token" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "session_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "account" (
+    "id" TEXT NOT NULL,
+    "accountId" TEXT NOT NULL,
+    "providerId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "accessToken" TEXT,
+    "refreshToken" TEXT,
+    "idToken" TEXT,
+    "accessTokenExpiresAt" TIMESTAMP(3),
+    "refreshTokenExpiresAt" TIMESTAMP(3),
+    "scope" TEXT,
+    "password" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "account_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "verification" (
+    "id" TEXT NOT NULL,
+    "identifier" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "verification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -394,6 +454,24 @@ CREATE INDEX "Movimiento_createdAt_idx" ON "Movimiento"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "Auditoria_createdAt_idx" ON "Auditoria"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_username_key" ON "user"("username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_email_key" ON "user"("email");
+
+-- CreateIndex
+CREATE INDEX "session_userId_idx" ON "session"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "session_token_key" ON "session"("token");
+
+-- CreateIndex
+CREATE INDEX "account_userId_idx" ON "account"("userId");
+
+-- CreateIndex
+CREATE INDEX "verification_identifier_idx" ON "verification"("identifier");
 
 -- AddForeignKey
 ALTER TABLE "RolPermiso" ADD CONSTRAINT "RolPermiso_rolId_fkey" FOREIGN KEY ("rolId") REFERENCES "Rol"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -505,3 +583,9 @@ ALTER TABLE "Movimiento" ADD CONSTRAINT "Movimiento_usuarioId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "Auditoria" ADD CONSTRAINT "Auditoria_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "session" ADD CONSTRAINT "session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "account" ADD CONSTRAINT "account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
