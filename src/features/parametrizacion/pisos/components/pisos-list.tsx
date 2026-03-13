@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { togglePisoStatus } from "@/features/parametrizacion/pisos/lib/toggle-piso-status";
+import { EditPisoDialog } from "@/features/parametrizacion/pisos/components/edit-piso-dialog";
 import type { Piso } from "../../../../../generated/prisma/client";
 
 type PisosListProps = {
@@ -56,7 +57,9 @@ export function PisosList({ pisos }: PisosListProps) {
             <span>{piso.id}</span>
             <span>{piso.nombre}</span>
             <span>{piso.estado}</span>
-            <div>
+            <div className="flex items-center gap-2">
+              <EditPisoDialog id={piso.id} nombre={piso.nombre} />
+
               <Button
                 type="button"
                 variant="outline"

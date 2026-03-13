@@ -24,6 +24,7 @@ export function PisoForm() {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<PisoFormValues>({
     resolver: zodResolver(pisoFormSchema),
@@ -37,6 +38,10 @@ export function PisoForm() {
         try {
         await createPiso(values);
         toast.success("Piso creado correctamente");
+        reset({
+          codigo: "",
+          nombre: "", 
+        });
         } catch (error) {
         toast.error(
             error instanceof Error ? error.message : "No se pudo crear el piso"

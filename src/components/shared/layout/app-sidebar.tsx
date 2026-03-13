@@ -11,6 +11,7 @@ import {
   Shield,
   FileText,
   Building2,
+  Monitor,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,6 +30,7 @@ const items = [
   { title: "Reportes", href: "/reportes", icon: BarChart3 },
   { title: "Parametrización", href: "/parametrizacion", icon: Settings2 },
   { title: "Pisos", href: "/parametrizacion/pisos", icon: Building2 },
+  { title: "Módulos de atención", href: "/parametrizacion/modulos-atencion", icon: Monitor },
   { title: "Colaboradores", href: "/colaboradores", icon: Users },
   { title: "Seguridad", href: "/seguridad", icon: Shield },
 ];
