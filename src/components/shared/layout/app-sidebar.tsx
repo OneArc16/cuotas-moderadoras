@@ -13,6 +13,7 @@ import {
   Building2,
   Monitor,
   Vault,
+  Tags,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const items = [
   { title: "Módulos de atención", href: "/parametrizacion/modulos-atencion", icon: Monitor },
   { title: "Cajas", href: "/parametrizacion/cajas", icon: Vault },
   { title: "Contratos", href: "/parametrizacion/contratos", icon: FileText },
+  { title: "Categorías de afiliación", href: "/parametrizacion/categorias-afiliacion", icon: Tags },
   { title: "Colaboradores", href: "/colaboradores", icon: Users },
   { title: "Seguridad", href: "/seguridad", icon: Shield },
 ];
