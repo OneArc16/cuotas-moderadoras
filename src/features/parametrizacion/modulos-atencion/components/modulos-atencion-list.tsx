@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { toggleModuloAtencionStatus } from "@/features/parametrizacion/modulos-atencion/lib/toggle-modulo-atencion-status";
+import { EditModuloAtencionDialog } from "@/features/parametrizacion/modulos-atencion/components/edit-modulo-atencion-dialog";
 
 type ModuloAtencionItem = {
   id: number;
@@ -12,16 +13,24 @@ type ModuloAtencionItem = {
   codigo: string;
   estado: string;
   piso: {
+    id: number;
     nombre: string;
   };
 };
 
+type PisoOption = {
+  id: number;
+  nombre: string;
+};
+
 type ModulosAtencionListProps = {
   modulos: ModuloAtencionItem[];
+  pisos: PisoOption[];
 };
 
 export function ModulosAtencionList({
   modulos,
+  pisos,
 }: ModulosAtencionListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -74,7 +83,15 @@ export function ModulosAtencionList({
             <span>{modulo.nombre}</span>
             <span>{modulo.piso.nombre}</span>
             <span>{modulo.estado}</span>
-            <div>
+            <div className="flex items-center gap-2">
+              <EditModuloAtencionDialog
+                id={modulo.id}
+                codigo={modulo.codigo}
+                nombre={modulo.nombre}
+                pisoId={modulo.piso.id}
+                pisos={pisos}
+              />
+
               <Button
                 type="button"
                 variant="outline"

@@ -30,7 +30,7 @@ export default async function ModulosAtencionPage() {
             Total de módulos registrados: {modulos.length}
           </p>
 
-          <ModulosAtencionList modulos={modulos} />
+          <ModulosAtencionList modulos={modulos} pisos={pisos} />
         </CardContent>
       </Card>
     </div>
