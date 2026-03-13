@@ -14,6 +14,8 @@ import {
   Monitor,
   Vault,
   Tags,
+  BadgeDollarSign,
+  Stethoscope,
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +38,8 @@ const items = [
   { title: "Cajas", href: "/parametrizacion/cajas", icon: Vault },
   { title: "Contratos", href: "/parametrizacion/contratos", icon: FileText },
   { title: "Categorías de afiliación", href: "/parametrizacion/categorias-afiliacion", icon: Tags },
+  { title: "Tarifas", href: "/parametrizacion/tarifas", icon: BadgeDollarSign },
+  { title: "Servicios", href: "/parametrizacion/servicios", icon: Stethoscope },
   { title: "Colaboradores", href: "/colaboradores", icon: Users },
   { title: "Seguridad", href: "/seguridad", icon: Shield },
 ];
