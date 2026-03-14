@@ -1,11 +1,29 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { z } from "zod";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { createTarifa } from "@/features/parametrizacion/tarifas/lib/create-tarifa";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const tarifaFormSchema = z.object({
   servicioId: z.coerce.number().min(1, "Debes seleccionar un servicio"),
@@ -40,9 +58,15 @@ export function TarifaForm({
   contratos,
   categorias,
 }: TarifaFormProps) {
+  const [isPending, startTransition] = useTransition();
+  const [servicioOpen, setServicioOpen] = useState(false);
+
   const {
     register,
     handleSubmit,
+    reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<TarifaFormValues>({
     resolver: zodResolver(tarifaFormSchema),
@@ -57,8 +81,30 @@ export function TarifaForm({
     },
   });
 
+  const servicioIdValue = watch("servicioId");
+  const selectedServicio =
+    servicios.find((servicio) => servicio.id === servicioIdValue) ?? null;
+
   function onSubmit(values: TarifaFormValues) {
-    console.log(values);
+    startTransition(async () => {
+      try {
+        await createTarifa(values);
+        toast.success("Tarifa creada correctamente");
+        reset({
+          servicioId: 0,
+          contratoId: 0,
+          categoriaAfiliacionId: undefined,
+          tipoCobro: "CUOTA_MODERADORA",
+          valor: "",
+          fechaInicioVigencia: "",
+          fechaFinVigencia: "",
+        });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "No se pudo crear la tarifa"
+        );
+      }
+    });
   }
 
   return (
@@ -67,18 +113,61 @@ export function TarifaForm({
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="servicioId">Servicio</Label>
-            <select
-              id="servicioId"
-              {...register("servicioId")}
-              className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value={0}>Selecciona un servicio</option>
-              {servicios.map((servicio) => (
-                <option key={servicio.id} value={servicio.id}>
-                  {servicio.nombre}
-                </option>
-              ))}
-            </select>
+
+            <Popover open={servicioOpen} onOpenChange={setServicioOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={servicioOpen}
+                  className={cn(
+                    "w-full justify-between font-normal",
+                    !selectedServicio && "text-muted-foreground"
+                  )}
+                >
+                  {selectedServicio
+                    ? selectedServicio.nombre
+                    : "Selecciona un servicio"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar servicio..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron servicios.</CommandEmpty>
+                    <CommandGroup>
+                      {servicios.map((servicio) => (
+                        <CommandItem
+                          key={servicio.id}
+                          value={servicio.nombre}
+                          onSelect={() => {
+                            setValue("servicioId", servicio.id, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            });
+                            setServicioOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              servicioIdValue === servicio.id
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {servicio.nombre}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
             {errors.servicioId ? (
               <p className="text-sm text-destructive">
                 {errors.servicioId.message}
@@ -185,7 +274,9 @@ export function TarifaForm({
           </div>
         </div>
 
-        <Button type="submit">Guardar tarifa</Button>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Guardando..." : "Guardar tarifa"}
+        </Button>
       </form>
     </div>
   );
