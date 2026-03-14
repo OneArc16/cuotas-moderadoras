@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { z } from "zod";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -47,16 +47,27 @@ type Option = {
   nombre: string;
 };
 
+type ContratoOption = {
+  id: number;
+  nombre: string;
+  categorias: {
+    id: number;
+    categoriaAfiliacionId: number;
+    categoriaAfiliacion: {
+      id: number;
+      nombre: string;
+    };
+  }[];
+};
+
 type TarifaFormProps = {
   servicios: Option[];
-  contratos: Option[];
-  categorias: Option[];
+  contratos: ContratoOption[];
 };
 
 export function TarifaForm({
   servicios,
   contratos,
-  categorias,
 }: TarifaFormProps) {
   const [isPending, startTransition] = useTransition();
   const [servicioOpen, setServicioOpen] = useState(false);
@@ -82,6 +93,35 @@ export function TarifaForm({
   });
 
   const servicioIdValue = watch("servicioId");
+
+  const contratoIdValue = Number(watch("contratoId") || 0);
+
+  const categoriaAfiliacionIdValue = watch("categoriaAfiliacionId");
+  const selectedContrato =
+  contratos.find((contrato) => contrato.id === contratoIdValue) ?? null;
+
+  const categoriasDisponibles = selectedContrato
+  ? selectedContrato.categorias.map((relacion) => ({
+      id: relacion.categoriaAfiliacion.id,
+      nombre: relacion.categoriaAfiliacion.nombre,
+    }))
+  : [];
+
+  useEffect(() => {
+  if (!categoriaAfiliacionIdValue) return;
+
+  const categoriaSigueDisponible = categoriasDisponibles.some(
+    (categoria) => categoria.id === Number(categoriaAfiliacionIdValue)
+  );
+
+  if (!categoriaSigueDisponible) {
+    setValue("categoriaAfiliacionId", undefined, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }
+}, [categoriaAfiliacionIdValue, categoriasDisponibles, setValue]);
+
   const selectedServicio =
     servicios.find((servicio) => servicio.id === servicioIdValue) ?? null;
 
@@ -206,9 +246,12 @@ export function TarifaForm({
               id="categoriaAfiliacionId"
               {...register("categoriaAfiliacionId")}
               className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              disabled={!selectedContrato}
             >
-              <option value="">Sin categoría</option>
-              {categorias.map((categoria) => (
+              <option value="">
+                {selectedContrato ? "Sin categoría" : "Primero selecciona un contrato"}
+              </option>
+              {categoriasDisponibles.map((categoria) => (
                 <option key={categoria.id} value={categoria.id}>
                   {categoria.nombre}
                 </option>

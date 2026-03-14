@@ -16,6 +16,7 @@ import {
   Tags,
   BadgeDollarSign,
   Stethoscope,
+  Link2,
 } from "lucide-react";
 import {
   Sidebar,

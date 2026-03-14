@@ -22,7 +22,6 @@ export default async function TarifasPage() {
       <TarifaForm
         servicios={options.servicios}
         contratos={options.contratos}
-        categorias={options.categorias}
       />
 
       <Card>
@@ -34,7 +33,7 @@ export default async function TarifasPage() {
             Total de tarifas registradas: {tarifas.length}
           </p>
 
-          <TarifasList tarifas={tarifas} servicios={options.servicios} contratos={options.contratos} categorias={options.categorias} />
+          <TarifasList tarifas={tarifas} servicios={options.servicios} contratos={options.contratos} />
         </CardContent>
       </Card>
     </div>

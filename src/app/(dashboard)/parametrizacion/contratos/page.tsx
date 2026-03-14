@@ -3,9 +3,13 @@ import { PageHeader } from "@/components/shared/page/page-header";
 import { ContratoForm } from "@/features/parametrizacion/contratos/components/contrato-form";
 import { ContratosList } from "@/features/parametrizacion/contratos/components/contratos-list";
 import { getContratos } from "@/features/parametrizacion/contratos/lib/get-contratos";
+import { getCategoriasAfiliacion } from "@/features/parametrizacion/categorias-afiliacion/lib/get-categorias-afiliacion";
 
 export default async function ContratosPage() {
-  const contratos = await getContratos();
+  const [contratos, categoriasAfiliacion] = await Promise.all([
+    getContratos(),
+    getCategoriasAfiliacion(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,7 +30,7 @@ export default async function ContratosPage() {
             Total de contratos registrados: {contratos.length}
           </p>
 
-          <ContratosList contratos={contratos} />
+          <ContratosList contratos={contratos} categoriasAfiliacion={categoriasAfiliacion} />
         </CardContent>
       </Card>
     </div>

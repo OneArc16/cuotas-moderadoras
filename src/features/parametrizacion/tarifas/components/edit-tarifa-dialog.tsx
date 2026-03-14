@@ -35,6 +35,19 @@ type Option = {
   nombre: string;
 };
 
+type ContratoOption = {
+  id: number;
+  nombre: string;
+  categorias: {
+    id: number;
+    categoriaAfiliacionId: number;
+    categoriaAfiliacion: {
+      id: number;
+      nombre: string;
+    };
+  }[];
+};
+
 type EditTarifaDialogProps = {
   id: number;
   servicioId: number;
@@ -45,8 +58,7 @@ type EditTarifaDialogProps = {
   fechaInicioVigencia: string;
   fechaFinVigencia: string | null;
   servicios: Option[];
-  contratos: Option[];
-  categorias: Option[];
+  contratos: ContratoOption[];
 };
 
 function toDateInputValue(value: string | null) {
@@ -89,6 +101,28 @@ export function EditTarifaDialog({
 
   const selectedServicio =
     servicios.find((servicio) => servicio.id === servicioIdValue) ?? null;
+
+    const selectedContrato =
+  contratos.find((contrato) => contrato.id === contratoIdValue) ?? null;
+
+const categoriasDisponibles = selectedContrato
+  ? selectedContrato.categorias.map((relacion) => ({
+      id: relacion.categoriaAfiliacion.id,
+      nombre: relacion.categoriaAfiliacion.nombre,
+    }))
+  : [];
+
+useEffect(() => {
+  if (categoriaAfiliacionIdValue === "") return;
+
+  const categoriaSigueDisponible = categoriasDisponibles.some(
+    (categoria) => categoria.id === Number(categoriaAfiliacionIdValue)
+  );
+
+  if (!categoriaSigueDisponible) {
+    setCategoriaAfiliacionIdValue("");
+  }
+}, [categoriaAfiliacionIdValue, categoriasDisponibles]);
 
   useEffect(() => {
     setServicioIdValue(servicioId);
@@ -252,9 +286,12 @@ export function EditTarifaDialog({
                     )
                   }
                   className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  disabled={!selectedContrato}
                 >
-                  <option value="">Sin categoría</option>
-                  {categorias.map((categoria) => (
+                  <option value="">
+                    {selectedContrato ? "Sin categoría" : "Primero selecciona un contrato"}
+                  </option>
+                  {categoriasDisponibles.map((categoria) => (
                     <option key={categoria.id} value={categoria.id}>
                       {categoria.nombre}
                     </option>

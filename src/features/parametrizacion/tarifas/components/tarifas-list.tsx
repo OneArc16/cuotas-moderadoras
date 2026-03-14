@@ -36,11 +36,23 @@ type Option = {
   nombre: string;
 };
 
+type ContratoOption = {
+  id: number;
+  nombre: string;
+  categorias: {
+    id: number;
+    categoriaAfiliacionId: number;
+    categoriaAfiliacion: {
+      id: number;
+      nombre: string;
+    };
+  }[];
+};
+
 type TarifasListProps = {
   tarifas: TarifaItem[];
   servicios: Option[];
-  contratos: Option[];
-  categorias: Option[];
+  contratos: ContratoOption[];
 };
 
 function formatTipoCobro(tipoCobro: string) {
@@ -62,7 +74,7 @@ function formatFecha(fechaIso: string) {
   return `${day}/${month}/${year}`;
 }
 
-export function TarifasList({ tarifas, servicios, contratos, categorias, }: TarifasListProps) {
+export function TarifasList({ tarifas, servicios, contratos, }: TarifasListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -141,7 +153,6 @@ export function TarifasList({ tarifas, servicios, contratos, categorias, }: Tari
                     fechaFinVigencia={tarifa.fechaFinVigencia}
                     servicios={servicios}
                     contratos={contratos}
-                    categorias={categorias}
                   />
 
                   <Button

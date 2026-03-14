@@ -25,6 +25,41 @@ export async function updateTarifa(input: UpdateTarifaInput) {
     throw new Error("La fecha inicial es obligatoria");
   }
 
+  const fechaInicioVigencia = new Date(`${input.fechaInicioVigencia}T00:00:00`);
+
+  if (Number.isNaN(fechaInicioVigencia.getTime())) {
+    throw new Error("La fecha inicial no es válida");
+  }
+
+  const fechaFinVigencia = input.fechaFinVigencia
+    ? new Date(`${input.fechaFinVigencia}T00:00:00`)
+    : null;
+
+  if (fechaFinVigencia && Number.isNaN(fechaFinVigencia.getTime())) {
+    throw new Error("La fecha final no es válida");
+  }
+
+  if (fechaFinVigencia && fechaFinVigencia < fechaInicioVigencia) {
+    throw new Error("La fecha final no puede ser menor que la fecha inicial");
+  }
+
+  if (input.categoriaAfiliacionId) {
+    const relacionActiva = await prisma.contratoCategoriaAfiliacion.findFirst({
+      where: {
+        contratoId: input.contratoId,
+        categoriaAfiliacionId: input.categoriaAfiliacionId,
+        estado: "ACTIVO",
+      },
+      select: { id: true },
+    });
+
+    if (!relacionActiva) {
+      throw new Error(
+        "La categoría seleccionada no está habilitada para ese contrato"
+      );
+    }
+  }
+
   await prisma.tarifaServicio.update({
     where: { id: input.id },
     data: {
@@ -33,10 +68,8 @@ export async function updateTarifa(input: UpdateTarifaInput) {
       categoriaAfiliacionId: input.categoriaAfiliacionId || null,
       tipoCobro: input.tipoCobro,
       valor: valorNumero,
-      fechaInicioVigencia: new Date(input.fechaInicioVigencia),
-      fechaFinVigencia: input.fechaFinVigencia
-        ? new Date(input.fechaFinVigencia)
-        : null,
+      fechaInicioVigencia,
+      fechaFinVigencia,
     },
   });
 

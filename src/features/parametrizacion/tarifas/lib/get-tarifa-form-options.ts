@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 export async function getTarifaFormOptions() {
-  const [servicios, contratos, categorias] = await Promise.all([
+  const [servicios, contratos] = await Promise.all([
     prisma.servicio.findMany({
       where: { estado: "ACTIVO" },
       orderBy: { nombre: "asc" },
@@ -16,14 +16,24 @@ export async function getTarifaFormOptions() {
       select: {
         id: true,
         nombre: true,
-      },
-    }),
-    prisma.categoriaAfiliacion.findMany({
-      where: { estado: "ACTIVO" },
-      orderBy: { nombre: "asc" },
-      select: {
-        id: true,
-        nombre: true,
+        categorias: {
+          where: { estado: "ACTIVO" },
+          orderBy: {
+            categoriaAfiliacion: {
+              nombre: "asc",
+            },
+          },
+          select: {
+            id: true,
+            categoriaAfiliacionId: true,
+            categoriaAfiliacion: {
+              select: {
+                id: true,
+                nombre: true,
+              },
+            },
+          },
+        },
       },
     }),
   ]);
@@ -31,6 +41,5 @@ export async function getTarifaFormOptions() {
   return {
     servicios,
     contratos,
-    categorias,
   };
 }
