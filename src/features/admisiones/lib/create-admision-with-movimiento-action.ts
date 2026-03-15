@@ -6,15 +6,55 @@ import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { getTarifaVigente } from "@/features/admisiones/lib/get-tarifa-vigente";
 
+const METODO_PAGO_VALUES = [
+  "EFECTIVO",
+  "NEQUI",
+  "DAVIPLATA",
+  "TRANSFERENCIA",
+  "TARJETA",
+  "OTRO",
+] as const;
+
 const createAdmisionSchema = z.object({
   pacienteId: z.coerce.number().int().positive("Paciente inválido."),
   contratoId: z.coerce.number().int().positive("Contrato inválido."),
   servicioId: z.coerce.number().int().positive("Servicio inválido."),
-  categoriaAfiliacionId: z.coerce.number().int().positive().nullable().optional(),
-  descuentoValor: z.coerce.number().min(0, "El descuento no puede ser negativo.").default(0),
-  valorRecibido: z.coerce.number().min(0, "El valor recibido no puede ser negativo."),
-  observacion: z.string().trim().max(500, "La observación es demasiado larga.").optional().or(z.literal("")),
-  razonDescuento: z.string().trim().max(250, "La razón del descuento es demasiado larga.").optional().or(z.literal("")),
+  categoriaAfiliacionId: z.coerce
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional(),
+  descuentoInput: z
+    .string()
+    .trim()
+    .max(30, "El descuento es demasiado largo.")
+    .optional()
+    .or(z.literal("")),
+  valorRecibido: z.coerce
+    .number()
+    .min(0, "El valor recibido no puede ser negativo."),
+  metodoPago: z.enum(METODO_PAGO_VALUES, {
+    message: "Selecciona un método de pago válido.",
+  }),
+  referenciaPago: z
+    .string()
+    .trim()
+    .max(120, "La referencia de pago es demasiado larga.")
+    .optional()
+    .or(z.literal("")),
+  observacion: z
+    .string()
+    .trim()
+    .max(500, "La observación es demasiado larga.")
+    .optional()
+    .or(z.literal("")),
+  razonDescuento: z
+    .string()
+    .trim()
+    .max(250, "La razón del descuento es demasiado larga.")
+    .optional()
+    .or(z.literal("")),
 });
 
 export type CreateAdmisionWithMovimientoResult =
@@ -29,6 +69,7 @@ export type CreateAdmisionWithMovimientoResult =
         valorRecibido: string;
         valorDevuelto: string;
         tipoCobro: "CUOTA_MODERADORA" | "PARTICULAR";
+        metodoPago: (typeof METODO_PAGO_VALUES)[number];
       };
     }
   | {
@@ -39,8 +80,10 @@ export type CreateAdmisionWithMovimientoResult =
         contratoId?: string[];
         servicioId?: string[];
         categoriaAfiliacionId?: string[];
-        descuentoValor?: string[];
+        descuentoInput?: string[];
         valorRecibido?: string[];
+        metodoPago?: string[];
+        referenciaPago?: string[];
         observacion?: string[];
         razonDescuento?: string[];
       };
@@ -64,6 +107,51 @@ function buildPacienteNombreSnapshot(paciente: {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function parseDescuentoInput(rawValue: string | undefined) {
+  const value = rawValue?.trim() ?? "";
+
+  if (!value) {
+    return {
+      tipo: "NINGUNO" as const,
+      valorGuardado: 0,
+      porcentaje: 0,
+    };
+  }
+
+  const normalized = value.replace(/\s+/g, "");
+
+  if (normalized.endsWith("%")) {
+    const numericPart = normalized.slice(0, -1);
+    const porcentaje = Number(numericPart);
+
+    if (Number.isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) {
+      return {
+        error: "El porcentaje de descuento debe estar entre 0% y 100%.",
+      } as const;
+    }
+
+    return {
+      tipo: "PORCENTAJE" as const,
+      valorGuardado: porcentaje,
+      porcentaje,
+    };
+  }
+
+  const valorFijo = Number(normalized);
+
+  if (Number.isNaN(valorFijo) || valorFijo < 0) {
+    return {
+      error: "El descuento debe ser un valor fijo o un porcentaje válido. Ejemplo: 5000 o 10%.",
+    } as const;
+  }
+
+  return {
+    tipo: valorFijo > 0 ? ("VALOR_FIJO" as const) : ("NINGUNO" as const),
+    valorGuardado: valorFijo,
+    porcentaje: 0,
+  };
 }
 
 export async function createAdmisionWithMovimientoAction(
@@ -91,8 +179,10 @@ export async function createAdmisionWithMovimientoAction(
         contratoId: flattened.fieldErrors.contratoId,
         servicioId: flattened.fieldErrors.servicioId,
         categoriaAfiliacionId: flattened.fieldErrors.categoriaAfiliacionId,
-        descuentoValor: flattened.fieldErrors.descuentoValor,
+        descuentoInput: flattened.fieldErrors.descuentoInput,
         valorRecibido: flattened.fieldErrors.valorRecibido,
+        metodoPago: flattened.fieldErrors.metodoPago,
+        referenciaPago: flattened.fieldErrors.referenciaPago,
         observacion: flattened.fieldErrors.observacion,
         razonDescuento: flattened.fieldErrors.razonDescuento,
       },
@@ -100,6 +190,7 @@ export async function createAdmisionWithMovimientoAction(
   }
 
   const data = parsed.data;
+  const referenciaPago = data.referenciaPago?.trim() || null;
 
   const sesionOperativa = await prisma.sesionOperativa.findFirst({
     where: {
@@ -145,49 +236,50 @@ export async function createAdmisionWithMovimientoAction(
     };
   }
 
-  const [paciente, contrato, servicio, categoriaAfiliacion] = await Promise.all([
-    prisma.paciente.findUnique({
-      where: { id: data.pacienteId },
-      select: {
-        id: true,
-        tipoDocumento: true,
-        numeroDocumento: true,
-        primerNombre: true,
-        segundoNombre: true,
-        primerApellido: true,
-        segundoApellido: true,
-        estado: true,
-      },
-    }),
-    prisma.contrato.findUnique({
-      where: { id: data.contratoId },
-      select: {
-        id: true,
-        nombre: true,
-        tipo: true,
-        estado: true,
-      },
-    }),
-    prisma.servicio.findUnique({
-      where: { id: data.servicioId },
-      select: {
-        id: true,
-        nombre: true,
-        estado: true,
-      },
-    }),
-    data.categoriaAfiliacionId
-      ? prisma.categoriaAfiliacion.findUnique({
-          where: { id: data.categoriaAfiliacionId },
-          select: {
-            id: true,
-            codigo: true,
-            nombre: true,
-            estado: true,
-          },
-        })
-      : Promise.resolve(null),
-  ]);
+  const [paciente, contrato, servicio, categoriaAfiliacion] =
+    await Promise.all([
+      prisma.paciente.findUnique({
+        where: { id: data.pacienteId },
+        select: {
+          id: true,
+          tipoDocumento: true,
+          numeroDocumento: true,
+          primerNombre: true,
+          segundoNombre: true,
+          primerApellido: true,
+          segundoApellido: true,
+          estado: true,
+        },
+      }),
+      prisma.contrato.findUnique({
+        where: { id: data.contratoId },
+        select: {
+          id: true,
+          nombre: true,
+          tipo: true,
+          estado: true,
+        },
+      }),
+      prisma.servicio.findUnique({
+        where: { id: data.servicioId },
+        select: {
+          id: true,
+          nombre: true,
+          estado: true,
+        },
+      }),
+      data.categoriaAfiliacionId
+        ? prisma.categoriaAfiliacion.findUnique({
+            where: { id: data.categoriaAfiliacionId },
+            select: {
+              id: true,
+              codigo: true,
+              nombre: true,
+              estado: true,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
 
   if (!paciente) {
     return {
@@ -230,21 +322,25 @@ export async function createAdmisionWithMovimientoAction(
       };
     }
 
-    const categoriaHabilitada = await prisma.contratoCategoriaAfiliacion.findFirst({
-      where: {
-        contratoId: contrato.id,
-        categoriaAfiliacionId: categoriaAfiliacion.id,
-        estado: "ACTIVO",
+    const categoriaHabilitada = await prisma.contratoCategoriaAfiliacion.findFirst(
+      {
+        where: {
+          contratoId: contrato.id,
+          categoriaAfiliacionId: categoriaAfiliacion.id,
+          estado: "ACTIVO",
+        },
+        select: { id: true },
       },
-      select: { id: true },
-    });
+    );
 
     if (!categoriaHabilitada) {
       return {
         ok: false,
         message: "La categoría no está habilitada para este contrato.",
         fieldErrors: {
-          categoriaAfiliacionId: ["La categoría no está habilitada para este contrato."],
+          categoriaAfiliacionId: [
+            "La categoría no está habilitada para este contrato.",
+          ],
         },
       };
     }
@@ -263,12 +359,38 @@ export async function createAdmisionWithMovimientoAction(
     };
   }
 
+  const descuentoParseado = parseDescuentoInput(data.descuentoInput);
+
+  if ("error" in descuentoParseado) {
+    return {
+      ok: false,
+      message: descuentoParseado.error,
+      fieldErrors: {
+        descuentoInput: [descuentoParseado.error],
+      },
+    };
+  }
+
   const valorBase = Number(tarifa.valor);
-  const descuentoSolicitado = Math.max(data.descuentoValor ?? 0, 0);
-  const descuentoAplicado =
-    contrato.tipo === "PARTICULAR"
-      ? Math.min(descuentoSolicitado, valorBase)
-      : 0;
+
+  let descuentoTipo = "NINGUNO" as const;
+  let descuentoValorGuardado = 0;
+  let descuentoAplicado = 0;
+
+  if (contrato.tipo === "PARTICULAR") {
+    descuentoTipo = descuentoParseado.tipo;
+    descuentoValorGuardado = descuentoParseado.valorGuardado;
+
+    if (descuentoParseado.tipo === "PORCENTAJE") {
+      descuentoAplicado = Number(
+        ((valorBase * descuentoParseado.porcentaje) / 100).toFixed(2),
+      );
+    } else if (descuentoParseado.tipo === "VALOR_FIJO") {
+      descuentoAplicado = descuentoParseado.valorGuardado;
+    }
+
+    descuentoAplicado = Math.min(descuentoAplicado, valorBase);
+  }
 
   const valorFinalCobrado = Math.max(valorBase - descuentoAplicado, 0);
   const valorRecibido = data.valorRecibido;
@@ -284,14 +406,14 @@ export async function createAdmisionWithMovimientoAction(
     };
   }
 
-  const descuentoTipo =
-    descuentoAplicado > 0 ? "VALOR_FIJO" : "NINGUNO";
-
   const pacienteNombreSnapshot = buildPacienteNombreSnapshot(paciente);
   const pacienteDocumentoSnapshot = `${paciente.tipoDocumento} ${paciente.numeroDocumento}`;
   const categoriaNombreSnapshot = categoriaAfiliacion
     ? `${categoriaAfiliacion.codigo} · ${categoriaAfiliacion.nombre}`
     : null;
+
+  const saldoEsperadoIncrement =
+    data.metodoPago === "EFECTIVO" ? valorFinalCobrado : 0;
 
   const result = await prisma.$transaction(async (tx) => {
     const admision = await tx.admision.create({
@@ -316,13 +438,15 @@ export async function createAdmisionWithMovimientoAction(
         tarifaIdAplicada: tarifa.id,
         valorBase: toMoneyString(valorBase),
         descuentoTipo,
-        descuentoValor: toMoneyString(descuentoSolicitado),
+        descuentoValor: toMoneyString(descuentoValorGuardado),
         descuentoCalculado: toMoneyString(descuentoAplicado),
         razonDescuento:
           descuentoAplicado > 0 ? data.razonDescuento?.trim() || null : null,
         valorFinalCobrado: toMoneyString(valorFinalCobrado),
         valorRecibido: toMoneyString(valorRecibido),
         valorDevuelto: toMoneyString(valorDevuelto),
+        metodoPagoSnapshot: data.metodoPago,
+        referenciaPagoSnapshot: referenciaPago,
         observacion: data.observacion?.trim() || null,
       },
       select: {
@@ -341,6 +465,8 @@ export async function createAdmisionWithMovimientoAction(
         tipoMovimiento: "COBRO",
         naturaleza: "ENTRADA",
         valor: toMoneyString(valorFinalCobrado),
+        metodoPago: data.metodoPago,
+        referenciaPago,
         descripcion: `Cobro admisión ${servicio.nombre}`,
         referencia: `ADM-${admision.id}`,
       },
@@ -358,7 +484,7 @@ export async function createAdmisionWithMovimientoAction(
           increment: valorFinalCobrado,
         },
         saldoEsperado: {
-          increment: valorFinalCobrado,
+          increment: saldoEsperadoIncrement,
         },
       },
     });
@@ -380,6 +506,7 @@ export async function createAdmisionWithMovimientoAction(
       valorRecibido: toMoneyString(valorRecibido),
       valorDevuelto: toMoneyString(valorDevuelto),
       tipoCobro: tarifa.tipoCobro,
+      metodoPago: data.metodoPago,
     },
   };
 }

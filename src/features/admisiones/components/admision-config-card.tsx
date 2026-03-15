@@ -103,23 +103,21 @@ type AdmisionStatus =
         categoriaAfiliacionId?: string[];
         descuentoValor?: string[];
         valorRecibido?: string[];
+        metodoPago?: string[];
+        referenciaPago?: string[];
         observacion?: string[];
         razonDescuento?: string[];
       };
-    }
-  | {
-      kind: "success";
-      admision: {
-        id: number;
-        movimientoId: number;
-        valorBase: string;
-        descuentoAplicado: string;
-        valorFinalCobrado: string;
-        valorRecibido: string;
-        valorDevuelto: string;
-        tipoCobro: "CUOTA_MODERADORA" | "PARTICULAR";
-      };
     };
+
+const METODO_PAGO_OPTIONS = [
+  { value: "EFECTIVO", label: "Efectivo" },
+  { value: "NEQUI", label: "Nequi" },
+  { value: "DAVIPLATA", label: "Daviplata" },
+  { value: "TRANSFERENCIA", label: "Transferencia" },
+  { value: "TARJETA", label: "Tarjeta" },
+  { value: "OTRO", label: "Otro" },
+] as const;
 
 function formatMoney(value: number | string) {
   const numericValue = typeof value === "number" ? value : Number(value);
@@ -145,6 +143,75 @@ function parseMoneyInput(value: string) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function parseDescuentoInput(rawValue: string) {
+  const value = rawValue.trim();
+
+  if (!value) {
+    return {
+      tipo: "NINGUNO" as const,
+      valorGuardado: 0,
+      descuentoAplicado: 0,
+      descripcion: "Sin descuento",
+    };
+  }
+
+  const normalized = value.replace(/\s+/g, "");
+
+  if (normalized.endsWith("%")) {
+    const porcentaje = Number(normalized.slice(0, -1));
+
+    if (Number.isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) {
+      return {
+        tipo: "ERROR" as const,
+        valorGuardado: 0,
+        descuentoAplicado: 0,
+        descripcion: "Porcentaje inválido",
+      };
+    }
+
+    return {
+      tipo: "PORCENTAJE" as const,
+      valorGuardado: porcentaje,
+      descuentoAplicado: 0,
+      descripcion: `${porcentaje}%`,
+    };
+  }
+
+  const valorFijo = Number(normalized);
+
+  if (Number.isNaN(valorFijo) || valorFijo < 0) {
+    return {
+      tipo: "ERROR" as const,
+      valorGuardado: 0,
+      descuentoAplicado: 0,
+      descripcion: "Valor inválido",
+    };
+  }
+
+  return {
+    tipo: valorFijo > 0 ? ("VALOR_FIJO" as const) : ("NINGUNO" as const),
+    valorGuardado: valorFijo,
+    descuentoAplicado: 0,
+    descripcion: valorFijo > 0 ? formatMoney(valorFijo) : "Sin descuento",
+  };
+}
+
+function resolveDescuento(valorBase: number, descuentoInput: string, permitido: boolean) {
+  if (!permitido) return 0;
+
+  const parsed = parseDescuentoInput(descuentoInput);
+
+  if (parsed.tipo === "ERROR" || parsed.tipo === "NINGUNO") {
+    return 0;
+  }
+
+  if (parsed.tipo === "PORCENTAJE") {
+    return Math.min(Number(((valorBase * parsed.valorGuardado) / 100).toFixed(2)), valorBase);
+  }
+
+  return Math.min(parsed.valorGuardado, valorBase);
+}
+
 export function AdmisionConfigCard({
   canStartAdmision,
   selectedPatient,
@@ -164,8 +231,10 @@ export function AdmisionConfigCard({
   const [admisionStatus, setAdmisionStatus] = useState<AdmisionStatus>({
     kind: "idle",
   });
-  const [descuentoValor, setDescuentoValor] = useState("");
+  const [descuentoInput, setDescuentoInput] = useState("");
   const [valorRecibido, setValorRecibido] = useState("");
+  const [metodoPago, setMetodoPago] = useState("");
+  const [referenciaPago, setReferenciaPago] = useState("");
   const [razonDescuento, setRazonDescuento] = useState("");
   const [observacion, setObservacion] = useState("");
   const [isTarifaPending, startTarifaTransition] = useTransition();
@@ -247,9 +316,13 @@ export function AdmisionConfigCard({
   const descuentoPermitido =
     tarifaStatus.kind === "found" && contratoEsParticular;
 
-  const descuentoAplicado = descuentoPermitido
-    ? Math.min(parseMoneyInput(descuentoValor), valorBase)
-    : 0;
+  const descuentoAplicado = resolveDescuento(
+    valorBase,
+    descuentoInput,
+    descuentoPermitido,
+  );
+
+  const descuentoPreview = parseDescuentoInput(descuentoInput);
 
   const totalPagar = Math.max(valorBase - descuentoAplicado, 0);
   const recibido = parseMoneyInput(valorRecibido);
@@ -261,11 +334,14 @@ export function AdmisionConfigCard({
     Boolean(selectedPatient) &&
     tarifaStatus.kind === "found" &&
     recibido >= totalPagar &&
+    metodoPago.length > 0 &&
     !isBusy;
 
   function resetPaymentFields() {
-    setDescuentoValor("");
+    setDescuentoInput("");
     setValorRecibido("");
+    setMetodoPago("");
+    setReferenciaPago("");
     setRazonDescuento("");
     setObservacion("");
   }
@@ -354,7 +430,8 @@ export function AdmisionConfigCard({
       !selectedPatient ||
       tarifaStatus.kind !== "found" ||
       !contratoSeleccionado ||
-      !servicioSeleccionado
+      !servicioSeleccionado ||
+      !metodoPago
     ) {
       return;
     }
@@ -365,8 +442,10 @@ export function AdmisionConfigCard({
         contratoId: Number(contratoId),
         servicioId: Number(servicioId),
         categoriaAfiliacionId: requiereCategoria ? Number(categoriaId) : null,
-        descuentoValor: descuentoAplicado,
+        descuentoInput,
         valorRecibido: recibido,
+        metodoPago,
+        referenciaPago,
         razonDescuento,
         observacion,
       });
@@ -409,6 +488,16 @@ export function AdmisionConfigCard({
       ? admisionStatus.fieldErrors?.valorRecibido?.[0]
       : undefined;
 
+  const admisionMetodoPagoError =
+    admisionStatus.kind === "error"
+      ? admisionStatus.fieldErrors?.metodoPago?.[0]
+      : undefined;
+
+  const admisionReferenciaPagoError =
+    admisionStatus.kind === "error"
+      ? admisionStatus.fieldErrors?.referenciaPago?.[0]
+      : undefined;
+
   const admisionRazonDescuentoError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.razonDescuento?.[0]
@@ -440,20 +529,14 @@ export function AdmisionConfigCard({
         <div className="flex items-center gap-3">
           <span
             className={`rounded-full px-3 py-1 text-xs font-medium ${
-              admisionStatus.kind === "success"
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                : isReady
+              isReady
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                : canStartAdmision
                   ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                  : canStartAdmision
-                    ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                    : "bg-muted text-muted-foreground"
+                  : "bg-muted text-muted-foreground"
             }`}
           >
-            {admisionStatus.kind === "success"
-              ? "Completado"
-              : canStartAdmision
-                ? "En proceso"
-                : "Bloqueado"}
+            {canStartAdmision ? "En proceso" : "Bloqueado"}
           </span>
 
           <span className="text-2xl leading-none text-muted-foreground">
@@ -626,9 +709,12 @@ export function AdmisionConfigCard({
                         id="descuento-valor"
                         type="text"
                         inputMode="numeric"
-                        value={descuentoValor}
-                        onChange={(e) =>
-                          setDescuentoValor(sanitizeMoneyInput(e.target.value))
+                        value={descuentoInput}
+                        onChange={(e) => setDescuentoInput(e.target.value.toUpperCase())}
+                        placeholder={
+                          descuentoPermitido
+                            ? "Ej. 5000 o 10%"
+                            : "Solo para contrato particular"
                         }
                         disabled={!descuentoPermitido || isRegisterPending}
                         placeholder={
@@ -640,7 +726,9 @@ export function AdmisionConfigCard({
                       />
                       <p className="text-sm text-muted-foreground">
                         {descuentoPermitido
-                          ? `Descuento aplicado: ${formatMoney(descuentoAplicado)}`
+                          ? descuentoPreview.tipo === "ERROR"
+                            ? "Usa un valor fijo o un porcentaje válido. Ejemplo: 5000 o 10%."
+                            : `Descuento aplicado: ${formatMoney(descuentoAplicado)}`
                           : "Este contrato no permite descuento."}
                       </p>
                     </div>
@@ -670,6 +758,60 @@ export function AdmisionConfigCard({
                       {admisionValorRecibidoError ? (
                         <p className="text-sm text-destructive">
                           {admisionValorRecibidoError}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="metodo-pago"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Método de pago
+                      </label>
+                      <select
+                        id="metodo-pago"
+                        value={metodoPago}
+                        onChange={(e) => setMetodoPago(e.target.value)}
+                        disabled={isRegisterPending}
+                        className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
+                      >
+                        <option value="">Selecciona un método</option>
+                        {METODO_PAGO_OPTIONS.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                      {admisionMetodoPagoError ? (
+                        <p className="text-sm text-destructive">
+                          {admisionMetodoPagoError}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="referencia-pago"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Referencia de pago
+                      </label>
+                      <input
+                        id="referencia-pago"
+                        type="text"
+                        value={referenciaPago}
+                        onChange={(e) => setReferenciaPago(e.target.value)}
+                        disabled={isRegisterPending}
+                        placeholder="Opcional"
+                        className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Útil para Nequi, transferencia, tarjeta o comprobantes.
+                      </p>
+                      {admisionReferenciaPagoError ? (
+                        <p className="text-sm text-destructive">
+                          {admisionReferenciaPagoError}
                         </p>
                       ) : null}
                     </div>
@@ -819,26 +961,6 @@ export function AdmisionConfigCard({
                       </p>
                     </div>
                   ) : null}
-
-                  {admisionStatus.kind === "success" ? (
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                        Admisión registrada correctamente
-                      </p>
-                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                        <p>Admisión: {admisionStatus.admision.id}</p>
-                        <p>Movimiento: {admisionStatus.admision.movimientoId}</p>
-                        <p>
-                          Total cobrado:{" "}
-                          {formatMoney(admisionStatus.admision.valorFinalCobrado)}
-                        </p>
-                        <p>
-                          Vuelto:{" "}
-                          {formatMoney(admisionStatus.admision.valorDevuelto)}
-                        </p>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
 
@@ -956,10 +1078,10 @@ export function AdmisionConfigCard({
 
                       <div className="rounded-2xl bg-muted/40 p-4">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Descuento permitido
+                          Método de pago
                         </p>
                         <p className="mt-2 text-base font-semibold">
-                          {descuentoPermitido ? "Sí" : "No"}
+                          {metodoPago || "Pendiente"}
                         </p>
                       </div>
 
@@ -994,17 +1116,6 @@ export function AdmisionConfigCard({
                     </p>
                   </div>
                 )}
-
-                {admisionStatus.kind === "success" ? (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      Registro final completado
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      La admisión y el movimiento de caja ya fueron creados.
-                    </p>
-                  </div>
-                ) : null}
               </div>
             </div>
           </div>
