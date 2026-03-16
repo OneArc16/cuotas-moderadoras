@@ -36,7 +36,14 @@ export default async function DashboardLayout({
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:p-6">
         <AppSidebar
           usuario={{
-            nombreCompleto: buildFullName(usuario),
+            nombreCompleto: [
+              usuario.primerNombre,
+              usuario.segundoNombre,
+              usuario.primerApellido,
+              usuario.segundoApellido,
+            ]
+              .filter(Boolean)
+              .join(" "),
             username: usuario.username,
           }}
         />

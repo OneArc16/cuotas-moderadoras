@@ -1,38 +1,27 @@
+import { headers } from "next/headers";
+
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "@/lib/session";
 
 export async function getCurrentUsuario() {
-  const session = await getServerSession();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
   const authUserId = session?.user?.id;
 
   if (!authUserId) {
-    throw new Error("No hay sesión activa");
+    return null;
   }
 
   const usuario = await prisma.usuario.findUnique({
-    where: { authUserId },
-    select: {
-      id: true,
-      username: true,
-      estado: true,
-      rolId: true,
-      rol: {
-        select: {
-          id: true,
-          nombre: true,
-        },
-      },
+    where: {
+      authUserId,
+    },
+    include: {
+      rol: true,
     },
   });
-
-  if (!usuario) {
-    throw new Error("No existe un usuario de dominio vinculado a esta sesión");
-  }
-
-  if (usuario.estado !== "ACTIVO") {
-    throw new Error("El usuario actual no está activo");
-  }
 
   return usuario;
 }

@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Loader2, LogOut } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { authClient } from "@/lib/auth-client";
 
 type AppSidebarProps = {
   usuario?: {
@@ -89,6 +94,15 @@ const PARAMETRIZACION_ITEMS: NavItem[] = [
   },
 ];
 
+const ADMINISTRACION_ITEMS: NavItem[] = [
+  {
+    href: "/colaboradores",
+    label: "Colaboradores",
+    shortLabel: "CL",
+    description: "Usuarios internos",
+  },
+];
+
 function isItemActive(pathname: string, href: string) {
   if (href === "/") {
     return pathname === "/";
@@ -162,9 +176,24 @@ function NavSection({
 
 export function AppSidebar({ usuario }: AppSidebarProps) {
   const pathname = usePathname();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const nombreCompleto = usuario?.nombreCompleto ?? "Usuario";
   const username = usuario?.username ?? "sin-usuario";
+
+  async function handleSignOut() {
+    try {
+      setIsSigningOut(true);
+
+      await authClient.signOut();
+
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      toast.error("No se pudo cerrar la sesión. Intenta nuevamente.");
+      setIsSigningOut(false);
+    }
+  }
 
   return (
     <aside className="w-full lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-[290px]">
@@ -205,13 +234,40 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
             items={PARAMETRIZACION_ITEMS}
             pathname={pathname}
           />
+
+          <NavSection
+            title="Administración"
+            items={ADMINISTRACION_ITEMS}
+            pathname={pathname}
+          />
         </div>
 
-        <div className="mt-4 rounded-2xl border bg-muted/20 p-4">
-          <p className="text-sm font-medium">Flujo recomendado</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Dashboard, Caja, Admisiones y luego Movimientos.
-          </p>
+        <div className="mt-4 space-y-3">
+          <div className="rounded-2xl border bg-muted/20 p-4">
+            <p className="text-sm font-medium">Flujo recomendado</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Dashboard, Caja, Admisiones y luego Movimientos.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSigningOut ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cerrando sesión...
+              </>
+            ) : (
+              <>
+                <LogOut className="h-4 w-4" />
+                Cerrar sesión
+              </>
+            )}
+          </button>
         </div>
       </div>
     </aside>
