@@ -4,21 +4,10 @@ import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
-import {
-  findPacienteByDocumento,
-  TIPO_DOCUMENTO_VALUES,
-  type PacienteLookupResult,
-} from "@/features/admisiones/lib/find-paciente-by-documento";
+import type { PacienteLookupResult } from "@/features/admisiones/lib/find-paciente-by-documento";
 
-const createPacienteRapidoSchema = z.object({
-  tipoDocumento: z.enum(TIPO_DOCUMENTO_VALUES, {
-    message: "Selecciona un tipo de documento válido.",
-  }),
-  numeroDocumento: z
-    .string()
-    .trim()
-    .min(4, "El número de documento debe tener al menos 4 caracteres.")
-    .max(30, "El número de documento es demasiado largo."),
+const updatePacienteRapidoSchema = z.object({
+  pacienteId: z.coerce.number().int().positive("Paciente inválido."),
   primerNombre: z
     .string()
     .trim()
@@ -49,7 +38,7 @@ const createPacienteRapidoSchema = z.object({
     .or(z.literal("")),
 });
 
-export type CreatePacienteRapidoResult =
+export type UpdatePacienteRapidoResult =
   | {
       ok: true;
       paciente: PacienteLookupResult;
@@ -58,8 +47,7 @@ export type CreatePacienteRapidoResult =
       ok: false;
       message: string;
       fieldErrors?: {
-        tipoDocumento?: string[];
-        numeroDocumento?: string[];
+        pacienteId?: string[];
         primerNombre?: string[];
         segundoNombre?: string[];
         primerApellido?: string[];
@@ -78,9 +66,25 @@ function toUpperOrNull(value?: string | null) {
   return normalized.toUpperCase();
 }
 
-export async function createPacienteRapidoAction(
+function buildFullName(paciente: {
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
+}) {
+  return [
+    paciente.primerNombre,
+    paciente.segundoNombre,
+    paciente.primerApellido,
+    paciente.segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export async function updatePacienteRapidoAction(
   input: unknown,
-): Promise<CreatePacienteRapidoResult> {
+): Promise<UpdatePacienteRapidoResult> {
   const currentUser = await getCurrentUsuario();
 
   if (!currentUser) {
@@ -90,7 +94,7 @@ export async function createPacienteRapidoAction(
     };
   }
 
-  const parsed = createPacienteRapidoSchema.safeParse(input);
+  const parsed = updatePacienteRapidoSchema.safeParse(input);
 
   if (!parsed.success) {
     const flattened = parsed.error.flatten();
@@ -99,8 +103,7 @@ export async function createPacienteRapidoAction(
       ok: false,
       message: "Corrige los datos del paciente e inténtalo de nuevo.",
       fieldErrors: {
-        tipoDocumento: flattened.fieldErrors.tipoDocumento,
-        numeroDocumento: flattened.fieldErrors.numeroDocumento,
+        pacienteId: flattened.fieldErrors.pacienteId,
         primerNombre: flattened.fieldErrors.primerNombre,
         segundoNombre: flattened.fieldErrors.segundoNombre,
         primerApellido: flattened.fieldErrors.primerApellido,
@@ -110,40 +113,35 @@ export async function createPacienteRapidoAction(
     };
   }
 
-  const data = {
-    tipoDocumento: parsed.data.tipoDocumento,
-    numeroDocumento: parsed.data.numeroDocumento.replace(/\s+/g, "").trim(),
-    primerNombre: parsed.data.primerNombre.trim().toUpperCase(),
-    segundoNombre: toUpperOrNull(parsed.data.segundoNombre),
-    primerApellido: parsed.data.primerApellido.trim().toUpperCase(),
-    segundoApellido: toUpperOrNull(parsed.data.segundoApellido),
-    telefono: parsed.data.telefono?.trim() || null,
-  };
-
-  const existente = await findPacienteByDocumento({
-    tipoDocumento: data.tipoDocumento,
-    numeroDocumento: data.numeroDocumento,
+  const existente = await prisma.paciente.findUnique({
+    where: { id: parsed.data.pacienteId },
+    select: {
+      id: true,
+      tipoDocumento: true,
+      numeroDocumento: true,
+    },
   });
 
-  if (existente) {
+  if (!existente) {
     return {
       ok: false,
-      message: "Ya existe un paciente con ese documento.",
+      message: "El paciente seleccionado ya no existe.",
       fieldErrors: {
-        numeroDocumento: ["Ya existe un paciente con ese documento."],
+        pacienteId: ["El paciente seleccionado ya no existe."],
       },
     };
   }
 
-  const paciente = await prisma.paciente.create({
+  const paciente = await prisma.paciente.update({
+    where: {
+      id: parsed.data.pacienteId,
+    },
     data: {
-      tipoDocumento: data.tipoDocumento,
-      numeroDocumento: data.numeroDocumento,
-      primerNombre: data.primerNombre,
-      segundoNombre: data.segundoNombre,
-      primerApellido: data.primerApellido,
-      segundoApellido: data.segundoApellido,
-      telefono: data.telefono,
+      primerNombre: parsed.data.primerNombre.trim().toUpperCase(),
+      segundoNombre: toUpperOrNull(parsed.data.segundoNombre),
+      primerApellido: parsed.data.primerApellido.trim().toUpperCase(),
+      segundoApellido: toUpperOrNull(parsed.data.segundoApellido),
+      telefono: parsed.data.telefono?.trim() || null,
     },
     select: {
       id: true,
@@ -168,14 +166,7 @@ export async function createPacienteRapidoAction(
       segundoNombre: paciente.segundoNombre,
       primerApellido: paciente.primerApellido,
       segundoApellido: paciente.segundoApellido,
-      nombreCompleto: [
-        paciente.primerNombre,
-        paciente.segundoNombre,
-        paciente.primerApellido,
-        paciente.segundoApellido,
-      ]
-        .filter(Boolean)
-        .join(" "),
+      nombreCompleto: buildFullName(paciente),
       telefono: paciente.telefono,
       estado: paciente.estado,
     },

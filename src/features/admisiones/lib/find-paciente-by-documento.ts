@@ -21,6 +21,10 @@ export type PacienteLookupResult = {
   id: number;
   tipoDocumento: TipoDocumentoValue;
   numeroDocumento: string;
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
   nombreCompleto: string;
   telefono: string | null;
   estado: string;
@@ -78,6 +82,10 @@ export async function findPacienteByDocumento({
     id: paciente.id,
     tipoDocumento: paciente.tipoDocumento as TipoDocumentoValue,
     numeroDocumento: paciente.numeroDocumento,
+    primerNombre: paciente.primerNombre,
+    segundoNombre: paciente.segundoNombre,
+    primerApellido: paciente.primerApellido,
+    segundoApellido: paciente.segundoApellido,
     nombreCompleto: buildFullName(paciente),
     telefono: paciente.telefono,
     estado: paciente.estado,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { AdmisionConfigCard } from "@/features/admisiones/components/admision-config-card";
 import {
@@ -51,8 +50,13 @@ export function AdmisionesFlow({
   const [flowResetKey, setFlowResetKey] = useState(0);
 
   function handlePatientReady(patient: PacienteReadyPayload) {
+    const isSamePatient = selectedPatient?.id === patient.id;
+
     setSelectedPatient(patient);
-    setOpenStep(2);
+
+    if (!isSamePatient) {
+      setOpenStep(2);
+    }
   }
 
   function handleResetPatientFlow() {
@@ -62,7 +66,6 @@ export function AdmisionesFlow({
   }
 
   function handleAdmisionRegistered() {
-    toast.success("Admisión registrada correctamente");
     setSelectedPatient(null);
     setOpenStep(1);
     setFlowResetKey((prev) => prev + 1);

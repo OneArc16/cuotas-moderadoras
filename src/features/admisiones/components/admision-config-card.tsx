@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 
+import { AdmisionPosSummary } from "@/features/admisiones/components/admision-pos-summary";
 import { createAdmisionWithMovimientoAction } from "@/features/admisiones/lib/create-admision-with-movimiento-action";
 import { getTarifaVigenteAction } from "@/features/admisiones/lib/get-tarifa-vigente-action";
 
@@ -101,7 +102,7 @@ type AdmisionStatus =
         contratoId?: string[];
         servicioId?: string[];
         categoriaAfiliacionId?: string[];
-        descuentoValor?: string[];
+        descuentoInput?: string[];
         valorRecibido?: string[];
         metodoPago?: string[];
         referenciaPago?: string[];
@@ -196,7 +197,11 @@ function parseDescuentoInput(rawValue: string) {
   };
 }
 
-function resolveDescuento(valorBase: number, descuentoInput: string, permitido: boolean) {
+function resolveDescuento(
+  valorBase: number,
+  descuentoInput: string,
+  permitido: boolean,
+) {
   if (!permitido) return 0;
 
   const parsed = parseDescuentoInput(descuentoInput);
@@ -206,7 +211,10 @@ function resolveDescuento(valorBase: number, descuentoInput: string, permitido: 
   }
 
   if (parsed.tipo === "PORCENTAJE") {
-    return Math.min(Number(((valorBase * parsed.valorGuardado) / 100).toFixed(2)), valorBase);
+    return Math.min(
+      Number(((valorBase * parsed.valorGuardado) / 100).toFixed(2)),
+      valorBase,
+    );
   }
 
   return Math.min(parsed.valorGuardado, valorBase);
@@ -483,6 +491,11 @@ export function AdmisionConfigCard({
       ? admisionStatus.fieldErrors?.pacienteId?.[0]
       : undefined;
 
+  const admisionDescuentoError =
+    admisionStatus.kind === "error"
+      ? admisionStatus.fieldErrors?.descuentoInput?.[0]
+      : undefined;
+
   const admisionValorRecibidoError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.valorRecibido?.[0]
@@ -547,7 +560,7 @@ export function AdmisionConfigCard({
 
       {isOpen ? (
         <div className="border-t px-6 pb-6 pt-6">
-          <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-3xl border bg-muted/30 p-4">
               {selectedPatient ? (
                 <div className="mb-4 rounded-2xl border bg-background p-4">
@@ -700,26 +713,22 @@ export function AdmisionConfigCard({
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <label
-                        htmlFor="descuento-valor"
+                        htmlFor="descuento-input"
                         className="text-sm font-medium text-foreground"
                       >
                         Descuento
                       </label>
                       <input
-                        id="descuento-valor"
+                        id="descuento-input"
                         type="text"
-                        inputMode="numeric"
                         value={descuentoInput}
-                        onChange={(e) => setDescuentoInput(e.target.value.toUpperCase())}
-                        placeholder={
-                          descuentoPermitido
-                            ? "Ej. 5000 o 10%"
-                            : "Solo para contrato particular"
+                        onChange={(e) =>
+                          setDescuentoInput(e.target.value.toUpperCase())
                         }
                         disabled={!descuentoPermitido || isRegisterPending}
                         placeholder={
                           descuentoPermitido
-                            ? "Ej. 5000"
+                            ? "Ej. 5000 o 10%"
                             : "Solo para contrato particular"
                         }
                         className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
@@ -731,6 +740,11 @@ export function AdmisionConfigCard({
                             : `Descuento aplicado: ${formatMoney(descuentoAplicado)}`
                           : "Este contrato no permite descuento."}
                       </p>
+                      {admisionDescuentoError ? (
+                        <p className="text-sm text-destructive">
+                          {admisionDescuentoError}
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="space-y-2">
@@ -989,135 +1003,53 @@ export function AdmisionConfigCard({
               )}
             </div>
 
-            <div className="rounded-3xl border border-dashed bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">
-                Resumen preliminar
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Vista previa del contexto de cobro.
-              </p>
-
-              <div className="mt-5 space-y-3 rounded-3xl border bg-background p-5">
-                <div className="rounded-2xl bg-muted/40 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Paciente
-                  </p>
-                  <p className="mt-2 text-base font-semibold">
-                    {selectedPatient?.nombreCompleto || "Sin paciente"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {selectedPatient
-                      ? `${selectedPatient.tipoDocumento} · ${selectedPatient.numeroDocumento}`
-                      : "Primero completa el paso 1."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-muted/40 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Contrato
-                  </p>
-                  <p className="mt-2 text-base font-semibold">
-                    {contratoSeleccionado?.nombre || "Sin seleccionar"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {contratoSeleccionado
-                      ? `Tipo: ${contratoSeleccionado.tipo}`
-                      : "Selecciona un contrato para continuar."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-muted/40 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Servicio
-                  </p>
-                  <p className="mt-2 text-base font-semibold">
-                    {servicioSeleccionado?.nombre || "Sin seleccionar"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {servicioSeleccionado?.codigo
-                      ? `Código: ${servicioSeleccionado.codigo}`
-                      : "Selecciona un servicio válido para ese contrato."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-muted/40 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Categoría
-                  </p>
-                  <p className="mt-2 text-base font-semibold">
-                    {categoriaSeleccionada
-                      ? `${categoriaSeleccionada.codigo} · ${categoriaSeleccionada.nombre}`
-                      : servicioSeleccionado
-                        ? requiereCategoria
-                          ? "Pendiente por seleccionar"
-                          : "No aplica para esta combinación"
-                        : "Primero elige un servicio"}
-                  </p>
-                </div>
-
-                {tarifaStatus.kind === "found" ? (
-                  <div className="space-y-3">
-                    <div className="rounded-2xl bg-muted/40 p-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        Valor vigente
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {formatMoney(tarifaStatus.tarifa.valor)}
-                      </p>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl bg-muted/40 p-4">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Tipo de cobro
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {tarifaStatus.tarifa.tipoCobro}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-muted/40 p-4">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Método de pago
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {metodoPago || "Pendiente"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-muted/40 p-4">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Total final
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {formatMoney(totalPagar)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-muted/40 p-4">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Vuelto
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {formatMoney(vuelto)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900 dark:bg-rose-950/30">
-                    <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
-                      Regla visible del flujo
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {contratoEsParticular
-                        ? "Si el contrato es PARTICULAR, luego podremos habilitar descuento."
-                        : "Si el contrato no es PARTICULAR, luego el descuento quedará bloqueado."}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <AdmisionPosSummary
+              paciente={
+                selectedPatient
+                  ? {
+                      nombreCompleto: selectedPatient.nombreCompleto,
+                      tipoDocumento: selectedPatient.tipoDocumento,
+                      numeroDocumento: selectedPatient.numeroDocumento,
+                    }
+                  : null
+              }
+              contrato={
+                contratoSeleccionado
+                  ? {
+                      nombre: contratoSeleccionado.nombre,
+                      tipo: contratoSeleccionado.tipo,
+                    }
+                  : null
+              }
+              servicio={
+                servicioSeleccionado
+                  ? {
+                      nombre: servicioSeleccionado.nombre,
+                      codigo: servicioSeleccionado.codigo,
+                    }
+                  : null
+              }
+              categoria={
+                categoriaSeleccionada
+                  ? {
+                      codigo: categoriaSeleccionada.codigo,
+                      nombre: categoriaSeleccionada.nombre,
+                    }
+                  : null
+              }
+              tipoCobro={
+                tarifaStatus.kind === "found"
+                  ? tarifaStatus.tarifa.tipoCobro
+                  : null
+              }
+              metodoPago={metodoPago || null}
+              referenciaPago={referenciaPago || null}
+              descuentoPermitido={descuentoPermitido}
+              totalPagar={totalPagar}
+              valorRecibido={recibido}
+              vuelto={vuelto}
+              descuentoAplicado={descuentoAplicado}
+            />
           </div>
         </div>
       ) : null}

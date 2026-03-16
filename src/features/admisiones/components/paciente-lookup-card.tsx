@@ -4,11 +4,16 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { createPacienteRapidoAction } from "@/features/admisiones/lib/create-paciente-rapido-action";
 import { searchPacienteByDocumentoAction } from "@/features/admisiones/lib/search-paciente-by-documento-action";
+import { updatePacienteRapidoAction } from "@/features/admisiones/lib/update-paciente-rapido-action";
 
 export type PacienteReadyPayload = {
   id: number;
   tipoDocumento: string;
   numeroDocumento: string;
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
   nombreCompleto: string;
   telefono: string | null;
   estado: string;
@@ -33,9 +38,7 @@ const DOCUMENT_TYPES = [
 ] as const;
 
 type SearchStatus =
-  | {
-      kind: "idle";
-    }
+  | { kind: "idle" }
   | {
       kind: "error";
       message: string;
@@ -56,7 +59,7 @@ type SearchStatus =
       paciente: PacienteReadyPayload;
     };
 
-type CreateFormValues = {
+type FormValues = {
   primerNombre: string;
   segundoNombre: string;
   primerApellido: string;
@@ -64,7 +67,8 @@ type CreateFormValues = {
   telefono: string;
 };
 
-type CreateFieldErrors = {
+type FormFieldErrors = {
+  pacienteId?: string[];
   tipoDocumento?: string[];
   numeroDocumento?: string[];
   primerNombre?: string[];
@@ -74,7 +78,7 @@ type CreateFieldErrors = {
   telefono?: string[];
 };
 
-const INITIAL_CREATE_FORM: CreateFormValues = {
+const INITIAL_FORM: FormValues = {
   primerNombre: "",
   segundoNombre: "",
   primerApellido: "",
@@ -84,6 +88,16 @@ const INITIAL_CREATE_FORM: CreateFormValues = {
 
 function toUpperInput(value: string) {
   return value.toUpperCase();
+}
+
+function getFormValuesFromPaciente(paciente: PacienteReadyPayload): FormValues {
+  return {
+    primerNombre: paciente.primerNombre,
+    segundoNombre: paciente.segundoNombre ?? "",
+    primerApellido: paciente.primerApellido,
+    segundoApellido: paciente.segundoApellido ?? "",
+    telefono: paciente.telefono ?? "",
+  };
 }
 
 export function PacienteLookupCard({
@@ -99,15 +113,13 @@ export function PacienteLookupCard({
     kind: "idle",
   });
 
-  const [createFormOpen, setCreateFormOpen] = useState(false);
-  const [createValues, setCreateValues] =
-    useState<CreateFormValues>(INITIAL_CREATE_FORM);
-  const [createFieldErrors, setCreateFieldErrors] =
-    useState<CreateFieldErrors>({});
-  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
+  const [formValues, setFormValues] = useState<FormValues>(INITIAL_FORM);
+  const [formFieldErrors, setFormFieldErrors] = useState<FormFieldErrors>({});
+  const [formMessage, setFormMessage] = useState<string | null>(null);
 
   const [isSearchPending, startSearchTransition] = useTransition();
-  const [isCreatePending, startCreateTransition] = useTransition();
+  const [isSavePending, startSaveTransition] = useTransition();
 
   const numeroDocumentoLimpio = useMemo(
     () => numeroDocumento.replace(/\s+/g, "").trim(),
@@ -119,21 +131,22 @@ export function PacienteLookupCard({
     tipoDocumento.length > 0 &&
     numeroDocumentoLimpio.length >= 4 &&
     !isSearchPending &&
-    !isCreatePending;
+    !isSavePending;
 
   useEffect(() => {
     if (searchStatus.kind === "not-found") {
-      setCreateFormOpen(true);
-      setCreateFieldErrors({});
-      setCreateMessage(null);
-      setCreateValues(INITIAL_CREATE_FORM);
+      setFormMode("create");
+      setFormFieldErrors({});
+      setFormMessage(null);
+      setFormValues(INITIAL_FORM);
       return;
     }
 
-    if (searchStatus.kind === "found" || searchStatus.kind === "idle") {
-      setCreateFormOpen(false);
-      setCreateFieldErrors({});
-      setCreateMessage(null);
+    if (searchStatus.kind === "idle") {
+      setFormMode(null);
+      setFormFieldErrors({});
+      setFormMessage(null);
+      setFormValues(INITIAL_FORM);
     }
   }, [searchStatus]);
 
@@ -142,8 +155,8 @@ export function PacienteLookupCard({
 
     if (!canSearch) return;
 
-    setCreateFieldErrors({});
-    setCreateMessage(null);
+    setFormFieldErrors({});
+    setFormMessage(null);
 
     const payload = {
       tipoDocumento,
@@ -186,61 +199,114 @@ export function PacienteLookupCard({
     setTipoDocumento("");
     setNumeroDocumento("");
     setSearchStatus({ kind: "idle" });
-    setCreateFormOpen(false);
-    setCreateValues(INITIAL_CREATE_FORM);
-    setCreateFieldErrors({});
-    setCreateMessage(null);
+    setFormMode(null);
+    setFormValues(INITIAL_FORM);
+    setFormFieldErrors({});
+    setFormMessage(null);
     onFlowReset();
   }
 
-  function updateCreateField<K extends keyof CreateFormValues>(
+  function updateFormField<K extends keyof FormValues>(
     key: K,
-    value: CreateFormValues[K],
+    value: FormValues[K],
   ) {
-    setCreateValues((prev) => ({
+    setFormValues((prev) => ({
       ...prev,
       [key]: value,
     }));
   }
 
-  function handleCreatePaciente(e: React.FormEvent<HTMLFormElement>) {
+  function openEditForm() {
+    if (searchStatus.kind !== "found") return;
+
+    setFormMode("edit");
+    setFormFieldErrors({});
+    setFormMessage(null);
+    setFormValues(getFormValuesFromPaciente(searchStatus.paciente));
+  }
+
+  function handleCancelForm() {
+    setFormFieldErrors({});
+    setFormMessage(null);
+
+    if (searchStatus.kind === "not-found") {
+      setFormMode(null);
+      return;
+    }
+
+    setFormMode(null);
+  }
+
+  function handleSavePaciente(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (searchStatus.kind !== "not-found") return;
+    setFormFieldErrors({});
+    setFormMessage(null);
 
-    setCreateFieldErrors({});
-    setCreateMessage(null);
+    if (formMode === "create" && searchStatus.kind === "not-found") {
+      startSaveTransition(async () => {
+        const result = await createPacienteRapidoAction({
+          tipoDocumento: searchStatus.tipoDocumento,
+          numeroDocumento: searchStatus.numeroDocumento,
+          primerNombre: formValues.primerNombre,
+          segundoNombre: formValues.segundoNombre,
+          primerApellido: formValues.primerApellido,
+          segundoApellido: formValues.segundoApellido,
+          telefono: formValues.telefono,
+        });
 
-    startCreateTransition(async () => {
-      const result = await createPacienteRapidoAction({
-        tipoDocumento: searchStatus.tipoDocumento,
-        numeroDocumento: searchStatus.numeroDocumento,
-        primerNombre: createValues.primerNombre,
-        segundoNombre: createValues.segundoNombre,
-        primerApellido: createValues.primerApellido,
-        segundoApellido: createValues.segundoApellido,
-        telefono: createValues.telefono,
+        if (!result.ok) {
+          setFormFieldErrors(result.fieldErrors ?? {});
+          setFormMessage(result.message);
+          return;
+        }
+
+        setSearchStatus({
+          kind: "found",
+          tipoDocumento: result.paciente.tipoDocumento,
+          numeroDocumento: result.paciente.numeroDocumento,
+          paciente: result.paciente,
+        });
+
+        onPatientReady(result.paciente);
+        setFormMode(null);
+        setFormFieldErrors({});
+        setFormMessage(null);
       });
 
-      if (!result.ok) {
-        setCreateFieldErrors(result.fieldErrors ?? {});
-        setCreateMessage(result.message);
-        return;
-      }
+      return;
+    }
 
-      setSearchStatus({
-        kind: "found",
-        tipoDocumento: result.paciente.tipoDocumento,
-        numeroDocumento: result.paciente.numeroDocumento,
-        paciente: result.paciente,
+    if (formMode === "edit" && searchStatus.kind === "found") {
+      startSaveTransition(async () => {
+        const result = await updatePacienteRapidoAction({
+          pacienteId: searchStatus.paciente.id,
+          primerNombre: formValues.primerNombre,
+          segundoNombre: formValues.segundoNombre,
+          primerApellido: formValues.primerApellido,
+          segundoApellido: formValues.segundoApellido,
+          telefono: formValues.telefono,
+        });
+
+        if (!result.ok) {
+          setFormFieldErrors(result.fieldErrors ?? {});
+          setFormMessage(result.message);
+          return;
+        }
+
+        setSearchStatus({
+          kind: "found",
+          tipoDocumento: result.paciente.tipoDocumento,
+          numeroDocumento: result.paciente.numeroDocumento,
+          paciente: result.paciente,
+        });
+
+        onPatientReady(result.paciente);
+        setFormMode(null);
+        setFormFieldErrors({});
+        setFormMessage(null);
       });
-
-      onPatientReady(result.paciente);
-
-      setCreateFieldErrors({});
-      setCreateMessage(null);
-      setCreateFormOpen(false);
-    });
+    }
   }
 
   const tipoDocumentoError =
@@ -253,7 +319,7 @@ export function PacienteLookupCard({
       ? searchStatus.fieldErrors?.numeroDocumento?.[0]
       : undefined;
 
-  const isBusy = isSearchPending || isCreatePending;
+  const isBusy = isSearchPending || isSavePending;
   const isReady = searchStatus.kind === "found";
 
   return (
@@ -270,7 +336,7 @@ export function PacienteLookupCard({
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Primero validamos si el paciente ya existe por tipo y número de
-            documento.
+            documento antes de continuar la admisión.
           </p>
         </div>
 
@@ -293,14 +359,31 @@ export function PacienteLookupCard({
 
       {isOpen ? (
         <div className="border-t px-6 pb-6 pt-6">
-          <div className="grid gap-4 lg:grid-cols-[1.1fr_1.4fr]">
-            <div className="rounded-3xl border bg-muted/30 p-4">
-              <p className="text-sm font-medium text-foreground">
-                Consulta de paciente
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Esta búsqueda ya consulta la base de datos por documento.
-              </p>
+          <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-[28px] border bg-muted/30 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Identificación del paciente
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold tracking-tight">
+                    Consulta rápida
+                  </h3>
+                </div>
+
+                <div className="rounded-2xl border bg-background px-3 py-2 text-right">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Estado
+                  </p>
+                  <p className="text-sm font-medium">
+                    {searchStatus.kind === "found"
+                      ? "Encontrado"
+                      : searchStatus.kind === "not-found"
+                        ? "No existe"
+                        : "Pendiente"}
+                  </p>
+                </div>
+              </div>
 
               <form onSubmit={handleSearch} className="mt-5 space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -356,7 +439,7 @@ export function PacienteLookupCard({
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <button
                     type="submit"
                     disabled={!canSearch}
@@ -365,14 +448,18 @@ export function PacienteLookupCard({
                     {isSearchPending ? "Buscando..." : "Buscar paciente"}
                   </button>
 
-                  <button
-                    type="button"
-                    disabled={searchStatus.kind !== "not-found"}
-                    onClick={() => setCreateFormOpen(true)}
-                    className="inline-flex h-11 items-center justify-center rounded-2xl border px-5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Crear paciente rápido
-                  </button>
+                  {searchStatus.kind === "found" ? (
+                    <button
+                      type="button"
+                      onClick={openEditForm}
+                      disabled={isBusy}
+                      className="inline-flex h-11 items-center justify-center rounded-2xl border px-5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Editar paciente
+                    </button>
+                  ) : (
+                    <div />
+                  )}
 
                   <button
                     type="button"
@@ -386,98 +473,342 @@ export function PacienteLookupCard({
               </form>
 
               {!canStartAdmision ? (
-                <p className="mt-4 text-sm text-destructive">
-                  Este bloque se habilita cuando existe sesión operativa activa y
-                  jornada de caja abierta o reabierta.
-                </p>
+                <div className="mt-5 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                  <p className="text-sm font-medium text-destructive">
+                    El flujo aún no está habilitado
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Primero debe existir una sesión operativa activa y una
+                    jornada de caja abierta o reabierta.
+                  </p>
+                </div>
               ) : searchStatus.kind === "error" ? (
-                <p className="mt-4 text-sm text-destructive">
-                  {searchStatus.message}
-                </p>
+                <div className="mt-5 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                  <p className="text-sm font-medium text-destructive">
+                    No se pudo completar la búsqueda
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {searchStatus.message}
+                  </p>
+                </div>
               ) : searchStatus.kind === "not-found" ? (
-                <p className="mt-4 text-sm text-amber-700 dark:text-amber-400">
-                  No se encontró el paciente. Ya puedes registrarlo aquí mismo.
-                </p>
+                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    Paciente no encontrado
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Se habilitó el formulario de registro en el panel derecho.
+                  </p>
+                </div>
               ) : searchStatus.kind === "found" ? (
-                <p className="mt-4 text-sm text-emerald-700 dark:text-emerald-400">
-                  Paciente listo. Ya puedes continuar al paso 2.
-                </p>
-              ) : (
-                <p className="mt-4 text-sm text-muted-foreground">
-                  Busca un paciente por documento para continuar.
-                </p>
-              )}
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                    Paciente listo
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Ya puedes continuar al paso 2 o editar su información.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
-            <div className="rounded-3xl border border-dashed bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">
-                Resultado de la búsqueda
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Aquí mostramos el resultado real y el registro rápido si no
-                existe.
-              </p>
-
-              <div className="mt-5 rounded-3xl border bg-background p-5">
-                {searchStatus.kind === "idle" ? (
-                  <div className="space-y-3">
+            <div className="space-y-4">
+              {searchStatus.kind === "found" ? (
+                <section className="rounded-[28px] border bg-background p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Estado inicial
-                      </p>
                       <p className="text-sm text-muted-foreground">
-                        Aún no se ha realizado ninguna búsqueda.
+                        Resumen del paciente
+                      </p>
+                      <h3 className="mt-1 text-xl font-semibold tracking-tight">
+                        Paciente identificado
+                      </h3>
+                    </div>
+
+                    <div className="rounded-full bg-foreground px-3 py-1 text-xs font-medium text-background">
+                      {searchStatus.paciente.estado}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-[24px] border bg-muted/20 p-4">
+                    <div className="rounded-2xl bg-background p-4">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Nombre completo
+                      </p>
+                      <p className="mt-2 text-lg font-semibold">
+                        {searchStatus.paciente.nombreCompleto}
                       </p>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl bg-muted/40 p-4">
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-background p-4">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Documento
+                        </p>
+                        <p className="mt-2 text-base font-semibold">
+                          {searchStatus.paciente.tipoDocumento} ·{" "}
+                          {searchStatus.paciente.numeroDocumento}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-background p-4">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Teléfono
+                        </p>
+                        <p className="mt-2 text-base font-semibold">
+                          {searchStatus.paciente.telefono ||
+                            "Sin teléfono registrado"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {formMode === "edit" ? (
+                      <form
+                        onSubmit={handleSavePaciente}
+                        className="mt-4 space-y-4 rounded-2xl bg-background p-4"
+                      >
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <label
+                              htmlFor="edit-primer-nombre"
+                              className="text-sm font-medium text-foreground"
+                            >
+                              Primer nombre
+                            </label>
+                            <input
+                              id="edit-primer-nombre"
+                              type="text"
+                              value={formValues.primerNombre}
+                              onChange={(e) =>
+                                updateFormField(
+                                  "primerNombre",
+                                  toUpperInput(e.target.value),
+                                )
+                              }
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
+                            />
+                            {formFieldErrors.primerNombre?.[0] ? (
+                              <p className="text-sm text-destructive">
+                                {formFieldErrors.primerNombre[0]}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="space-y-2">
+                            <label
+                              htmlFor="edit-segundo-nombre"
+                              className="text-sm font-medium text-foreground"
+                            >
+                              Segundo nombre
+                            </label>
+                            <input
+                              id="edit-segundo-nombre"
+                              type="text"
+                              value={formValues.segundoNombre}
+                              onChange={(e) =>
+                                updateFormField(
+                                  "segundoNombre",
+                                  toUpperInput(e.target.value),
+                                )
+                              }
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
+                            />
+                            {formFieldErrors.segundoNombre?.[0] ? (
+                              <p className="text-sm text-destructive">
+                                {formFieldErrors.segundoNombre[0]}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="space-y-2">
+                            <label
+                              htmlFor="edit-primer-apellido"
+                              className="text-sm font-medium text-foreground"
+                            >
+                              Primer apellido
+                            </label>
+                            <input
+                              id="edit-primer-apellido"
+                              type="text"
+                              value={formValues.primerApellido}
+                              onChange={(e) =>
+                                updateFormField(
+                                  "primerApellido",
+                                  toUpperInput(e.target.value),
+                                )
+                              }
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
+                            />
+                            {formFieldErrors.primerApellido?.[0] ? (
+                              <p className="text-sm text-destructive">
+                                {formFieldErrors.primerApellido[0]}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="space-y-2">
+                            <label
+                              htmlFor="edit-segundo-apellido"
+                              className="text-sm font-medium text-foreground"
+                            >
+                              Segundo apellido
+                            </label>
+                            <input
+                              id="edit-segundo-apellido"
+                              type="text"
+                              value={formValues.segundoApellido}
+                              onChange={(e) =>
+                                updateFormField(
+                                  "segundoApellido",
+                                  toUpperInput(e.target.value),
+                                )
+                              }
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
+                            />
+                            {formFieldErrors.segundoApellido?.[0] ? (
+                              <p className="text-sm text-destructive">
+                                {formFieldErrors.segundoApellido[0]}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="space-y-2 sm:col-span-2">
+                            <label
+                              htmlFor="edit-telefono"
+                              className="text-sm font-medium text-foreground"
+                            >
+                              Teléfono
+                            </label>
+                            <input
+                              id="edit-telefono"
+                              type="text"
+                              value={formValues.telefono}
+                              onChange={(e) =>
+                                updateFormField("telefono", e.target.value)
+                              }
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
+                            />
+                            {formFieldErrors.telefono?.[0] ? (
+                              <p className="text-sm text-destructive">
+                                {formFieldErrors.telefono[0]}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {formMessage ? (
+                          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                            <p className="text-sm text-destructive">
+                              {formMessage}
+                            </p>
+                          </div>
+                        ) : null}
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <button
+                            type="submit"
+                            disabled={isSavePending}
+                            className="inline-flex h-11 items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isSavePending
+                              ? "Guardando..."
+                              : "Guardar cambios"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleCancelForm}
+                            disabled={isSavePending}
+                            className="inline-flex h-11 items-center justify-center rounded-2xl border px-5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="mt-4 rounded-2xl border border-dashed bg-background p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            Resultado del paso
+                          </span>
+                          <button
+                            type="button"
+                            onClick={openEditForm}
+                            className="inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-medium transition hover:bg-muted"
+                          >
+                            Editar información
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              ) : null}
+
+              {searchStatus.kind === "idle" ? (
+                <section className="rounded-[28px] border bg-background p-5 shadow-sm">
+                  <p className="text-sm text-muted-foreground">
+                    Vista previa del paciente
+                  </p>
+                  <h3 className="mt-1 text-xl font-semibold tracking-tight">
+                    Esperando búsqueda
+                  </h3>
+
+                  <div className="mt-5 rounded-[24px] border bg-muted/20 p-4">
+                    <div className="rounded-2xl bg-background p-4">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Estado actual
+                      </p>
+                      <p className="mt-2 text-base font-semibold">
+                        Aún no se ha consultado ningún documento
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Busca un paciente existente o crea uno nuevo para seguir
+                        al siguiente paso.
+                      </p>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-background p-4">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
                           Paciente existente
                         </p>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          Cuando exista, mostraremos su información básica para
-                          continuar el flujo.
+                          Verás sus datos básicos y podrás editarlos si hace
+                          falta.
                         </p>
                       </div>
 
-                      <div className="rounded-2xl bg-muted/40 p-4">
+                      <div className="rounded-2xl bg-background p-4">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
                           Paciente nuevo
                         </p>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          Si no existe, aquí activaremos el registro rápido.
+                          Se abrirá automáticamente el formulario de registro.
                         </p>
                       </div>
                     </div>
                   </div>
-                ) : null}
+                </section>
+              ) : null}
 
-                {searchStatus.kind === "error" ? (
-                  <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
-                    <p className="text-sm font-medium text-destructive">
-                      No se pudo completar la búsqueda
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {searchStatus.message}
-                    </p>
-                  </div>
-                ) : null}
+              {searchStatus.kind === "not-found" ? (
+                <section className="rounded-[28px] border bg-background p-5 shadow-sm">
+                  <p className="text-sm text-muted-foreground">
+                    Registro rápido
+                  </p>
+                  <h3 className="mt-1 text-xl font-semibold tracking-tight">
+                    Crear paciente
+                  </h3>
 
-                {searchStatus.kind === "not-found" ? (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Paciente no encontrado
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        No existe un paciente con este documento en la base
-                        actual.
-                      </p>
-                    </div>
-
+                  <div className="mt-5 rounded-[24px] border bg-muted/20 p-4">
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl bg-muted/40 p-4">
+                      <div className="rounded-2xl bg-background p-4">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
                           Tipo de documento
                         </p>
@@ -486,7 +817,7 @@ export function PacienteLookupCard({
                         </p>
                       </div>
 
-                      <div className="rounded-2xl bg-muted/40 p-4">
+                      <div className="rounded-2xl bg-background p-4">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
                           Número de documento
                         </p>
@@ -496,21 +827,11 @@ export function PacienteLookupCard({
                       </div>
                     </div>
 
-                    {createFormOpen ? (
+                    {formMode === "create" ? (
                       <form
-                        onSubmit={handleCreatePaciente}
-                        className="space-y-4 rounded-3xl border bg-muted/20 p-4"
+                        onSubmit={handleSavePaciente}
+                        className="mt-4 space-y-4 rounded-2xl bg-background p-4"
                       >
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            Registro rápido de paciente
-                          </p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Completa los datos mínimos para continuar la
-                            admisión.
-                          </p>
-                        </div>
-
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
                             <label
@@ -522,19 +843,19 @@ export function PacienteLookupCard({
                             <input
                               id="primer-nombre"
                               type="text"
-                              value={createValues.primerNombre}
+                              value={formValues.primerNombre}
                               onChange={(e) =>
-                                updateCreateField(
+                                updateFormField(
                                   "primerNombre",
                                   toUpperInput(e.target.value),
                                 )
                               }
-                              disabled={isCreatePending}
-                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
                             />
-                            {createFieldErrors.primerNombre?.[0] ? (
+                            {formFieldErrors.primerNombre?.[0] ? (
                               <p className="text-sm text-destructive">
-                                {createFieldErrors.primerNombre[0]}
+                                {formFieldErrors.primerNombre[0]}
                               </p>
                             ) : null}
                           </div>
@@ -549,19 +870,19 @@ export function PacienteLookupCard({
                             <input
                               id="segundo-nombre"
                               type="text"
-                              value={createValues.segundoNombre}
+                              value={formValues.segundoNombre}
                               onChange={(e) =>
-                                updateCreateField(
+                                updateFormField(
                                   "segundoNombre",
                                   toUpperInput(e.target.value),
                                 )
                               }
-                              disabled={isCreatePending}
-                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
                             />
-                            {createFieldErrors.segundoNombre?.[0] ? (
+                            {formFieldErrors.segundoNombre?.[0] ? (
                               <p className="text-sm text-destructive">
-                                {createFieldErrors.segundoNombre[0]}
+                                {formFieldErrors.segundoNombre[0]}
                               </p>
                             ) : null}
                           </div>
@@ -576,19 +897,19 @@ export function PacienteLookupCard({
                             <input
                               id="primer-apellido"
                               type="text"
-                              value={createValues.primerApellido}
+                              value={formValues.primerApellido}
                               onChange={(e) =>
-                                updateCreateField(
+                                updateFormField(
                                   "primerApellido",
                                   toUpperInput(e.target.value),
                                 )
                               }
-                              disabled={isCreatePending}
-                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
                             />
-                            {createFieldErrors.primerApellido?.[0] ? (
+                            {formFieldErrors.primerApellido?.[0] ? (
                               <p className="text-sm text-destructive">
-                                {createFieldErrors.primerApellido[0]}
+                                {formFieldErrors.primerApellido[0]}
                               </p>
                             ) : null}
                           </div>
@@ -603,19 +924,19 @@ export function PacienteLookupCard({
                             <input
                               id="segundo-apellido"
                               type="text"
-                              value={createValues.segundoApellido}
+                              value={formValues.segundoApellido}
                               onChange={(e) =>
-                                updateCreateField(
+                                updateFormField(
                                   "segundoApellido",
                                   toUpperInput(e.target.value),
                                 )
                               }
-                              disabled={isCreatePending}
-                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
                             />
-                            {createFieldErrors.segundoApellido?.[0] ? (
+                            {formFieldErrors.segundoApellido?.[0] ? (
                               <p className="text-sm text-destructive">
-                                {createFieldErrors.segundoApellido[0]}
+                                {formFieldErrors.segundoApellido[0]}
                               </p>
                             ) : null}
                           </div>
@@ -630,48 +951,50 @@ export function PacienteLookupCard({
                             <input
                               id="telefono"
                               type="text"
-                              value={createValues.telefono}
+                              value={formValues.telefono}
                               onChange={(e) =>
-                                updateCreateField("telefono", e.target.value)
+                                updateFormField("telefono", e.target.value)
                               }
-                              disabled={isCreatePending}
-                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={isSavePending}
+                              className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
                             />
-                            {createFieldErrors.telefono?.[0] ? (
+                            {formFieldErrors.telefono?.[0] ? (
                               <p className="text-sm text-destructive">
-                                {createFieldErrors.telefono[0]}
+                                {formFieldErrors.telefono[0]}
                               </p>
                             ) : null}
                           </div>
                         </div>
 
-                        {createFieldErrors.numeroDocumento?.[0] ? (
+                        {formFieldErrors.numeroDocumento?.[0] ? (
                           <p className="text-sm text-destructive">
-                            {createFieldErrors.numeroDocumento[0]}
+                            {formFieldErrors.numeroDocumento[0]}
                           </p>
                         ) : null}
 
-                        {createMessage ? (
-                          <p className="text-sm text-destructive">
-                            {createMessage}
-                          </p>
+                        {formMessage ? (
+                          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                            <p className="text-sm text-destructive">
+                              {formMessage}
+                            </p>
+                          </div>
                         ) : null}
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
                           <button
                             type="submit"
-                            disabled={isCreatePending}
+                            disabled={isSavePending}
                             className="inline-flex h-11 items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {isCreatePending
+                            {isSavePending
                               ? "Creando..."
                               : "Guardar paciente"}
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => setCreateFormOpen(false)}
-                            disabled={isCreatePending}
+                            onClick={handleCancelForm}
+                            disabled={isSavePending}
                             className="inline-flex h-11 items-center justify-center rounded-2xl border px-5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             Ocultar formulario
@@ -679,82 +1002,45 @@ export function PacienteLookupCard({
                         </div>
                       </form>
                     ) : (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+                      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/30">
                         <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                          Formulario disponible
+                          Formulario oculto
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Puedes abrir el registro rápido con el botón “Crear
-                          paciente rápido”.
+                          Abre el formulario para registrar el paciente.
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => setFormMode("create")}
+                          className="mt-3 inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-medium transition hover:bg-muted"
+                        >
+                          Abrir formulario
+                        </button>
                       </div>
                     )}
                   </div>
-                ) : null}
+                </section>
+              ) : null}
 
-                {searchStatus.kind === "found" ? (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Paciente encontrado
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Ya puedes continuar con contrato, servicio y tarifa.
-                      </p>
-                    </div>
+              {searchStatus.kind === "error" ? (
+                <section className="rounded-[28px] border bg-background p-5 shadow-sm">
+                  <p className="text-sm text-muted-foreground">
+                    Resultado de la consulta
+                  </p>
+                  <h3 className="mt-1 text-xl font-semibold tracking-tight">
+                    Error en la búsqueda
+                  </h3>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl bg-muted/40 p-4 sm:col-span-2">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Nombre completo
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {searchStatus.paciente.nombreCompleto}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-muted/40 p-4">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Documento
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {searchStatus.paciente.tipoDocumento} ·{" "}
-                          {searchStatus.paciente.numeroDocumento}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-muted/40 p-4">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Estado
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {searchStatus.paciente.estado}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-muted/40 p-4 sm:col-span-2">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Teléfono
-                        </p>
-                        <p className="mt-2 text-base font-semibold">
-                          {searchStatus.paciente.telefono ||
-                            "Sin teléfono registrado"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                        Paso 1 completado
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        El siguiente bloque ya puede continuar con contrato,
-                        categoría y servicio.
-                      </p>
-                    </div>
+                  <div className="mt-5 rounded-[24px] border border-destructive/30 bg-destructive/5 p-4">
+                    <p className="text-sm font-medium text-destructive">
+                      No se pudo validar el documento
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {searchStatus.message}
+                    </p>
                   </div>
-                ) : null}
-              </div>
+                </section>
+              ) : null}
             </div>
           </div>
         </div>

@@ -1,53 +1,48 @@
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { getServerSession } from "@/lib/session";
+
 import { AppSidebar } from "@/components/shared/layout/app-sidebar";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { getCurrentUsuario } from "@/lib/current-user";
+
+function buildFullName(usuario: {
+  primerNombre: string;
+  segundoNombre: string | null;
+  primerApellido: string;
+  segundoApellido: string | null;
+}) {
+  return [
+    usuario.primerNombre,
+    usuario.segundoNombre,
+    usuario.primerApellido,
+    usuario.segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
-  const session = await getServerSession();
+  const usuario = await getCurrentUsuario();
 
-  if (!session) {
+  if (!usuario) {
     redirect("/login");
   }
 
-  const displayName =
-    session.user.name || session.user.username || session.user.email;
-
   return (
-    <SidebarProvider>
-      <AppSidebar />
+    <div className="min-h-screen bg-muted/30">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:p-6">
+        <AppSidebar
+          usuario={{
+            nombreCompleto: buildFullName(usuario),
+            username: usuario.username,
+          }}
+        />
 
-      <SidebarInset>
-        <div className="min-h-screen bg-muted/30">
-          <header className="border-b bg-background">
-            <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-              <div className="flex items-center gap-3">
-                <SidebarTrigger />
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Cuotas Moderadoras
-                  </p>
-                  <h1 className="text-base font-semibold">Dashboard</h1>
-                </div>
-              </div>
-
-              <div className="text-sm text-muted-foreground">
-                {displayName}
-              </div>
-            </div>
-          </header>
-
-          <main className="mx-auto max-w-7xl p-6">{children}</main>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+        <section className="min-w-0 flex-1">{children}</section>
+      </div>
+    </div>
   );
 }
