@@ -477,16 +477,16 @@ model User {
 }
 
 model Session {
-  id             String    @id
+  id             String   @id
   expiresAt      DateTime
   token          String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   ipAddress      String?
   userAgent      String?
   impersonatedBy String?
   userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
   @@index([userId])

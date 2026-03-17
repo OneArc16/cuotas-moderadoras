@@ -1,6 +1,8 @@
 import "dotenv/config";
-import { PrismaClient } from "../../generated/prisma/client";
+
 import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../generated/prisma/client";
+
 import { auth } from "../../src/lib/auth";
 
 const adapter = new PrismaPg({
@@ -8,6 +10,15 @@ const adapter = new PrismaPg({
 });
 
 const prisma = new PrismaClient({ adapter });
+
+function normalizeLoginUsername(value: string) {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._]/g, "")
+    .toLowerCase();
+}
 
 async function main() {
   const roles = [
@@ -51,8 +62,10 @@ async function main() {
     throw new Error("No se encontró el rol SUPERADMINISTRADOR");
   }
 
+  const adminName = "Administrador Principal";
   const adminEmail = "admin@cuotas.local";
-  const adminUsername = "admin";
+  const adminUsernameVisual = "admin";
+  const adminUsername = normalizeLoginUsername(adminUsernameVisual);
   const adminPassword = "Admin12345*";
 
   let authUser = await prisma.user.findUnique({
@@ -62,11 +75,11 @@ async function main() {
   if (!authUser) {
     await auth.api.signUpEmail({
       body: {
-        name: "Administrador Principal",
+        name: adminName,
         email: adminEmail,
         password: adminPassword,
         username: adminUsername,
-        displayUsername: adminUsername,
+        displayUsername: adminUsernameVisual,
       },
     });
 
@@ -76,42 +89,82 @@ async function main() {
   }
 
   if (!authUser) {
-    throw new Error("No se pudo crear el usuario auth");
+    throw new Error("No se pudo crear o recuperar el usuario auth");
   }
 
-  await prisma.usuario.upsert({
-    where: { username: adminUsername },
-    update: {
-      authUserId: authUser.id,
-      email: adminEmail,
-      rolId: adminRole.id,
-      estado: "ACTIVO",
-    },
-    create: {
-      tipoDocumento: "CC",
-      numeroDocumento: "1000000000",
-      primerNombre: "Administrador",
-      segundoNombre: null,
-      primerApellido: "Principal",
-      segundoApellido: null,
-      telefono: null,
+  await prisma.user.update({
+    where: { id: authUser.id },
+    data: {
+      name: adminName,
       email: adminEmail,
       username: adminUsername,
-      passwordHash: "BETTER_AUTH_MANAGED",
-      estado: "ACTIVO",
-      rolId: adminRole.id,
-      authUserId: authUser.id,
+      displayUsername: adminUsernameVisual,
+      role: "admin",
+      banned: false,
     },
   });
 
+  const usuarioExistente = await prisma.usuario.findFirst({
+    where: {
+      OR: [
+        { authUserId: authUser.id },
+        { username: adminUsername },
+        { email: adminEmail },
+        { numeroDocumento: "1000000000" },
+      ],
+    },
+  });
+
+  if (usuarioExistente) {
+    await prisma.usuario.update({
+      where: { id: usuarioExistente.id },
+      data: {
+        tipoDocumento: "CC",
+        numeroDocumento: "1000000000",
+        primerNombre: "ADMINISTRADOR",
+        segundoNombre: null,
+        primerApellido: "PRINCIPAL",
+        segundoApellido: null,
+        telefono: null,
+        email: adminEmail,
+        username: adminUsername,
+        passwordHash: "AUTH_MANAGED",
+        estado: "ACTIVO",
+        rolId: adminRole.id,
+        authUserId: authUser.id,
+      },
+    });
+  } else {
+    await prisma.usuario.create({
+      data: {
+        tipoDocumento: "CC",
+        numeroDocumento: "1000000000",
+        primerNombre: "ADMINISTRADOR",
+        segundoNombre: null,
+        primerApellido: "PRINCIPAL",
+        segundoApellido: null,
+        telefono: null,
+        email: adminEmail,
+        username: adminUsername,
+        passwordHash: "AUTH_MANAGED",
+        estado: "ACTIVO",
+        rolId: adminRole.id,
+        authUserId: authUser.id,
+      },
+    });
+  }
+
   console.log("Seed inicial completado");
+  console.log("Auth user id:", authUser.id);
   console.log("Usuario:", adminUsername);
   console.log("Contraseña:", adminPassword);
+  console.log("Rol Better Auth:", "admin");
+  console.log("Rol interno:", adminRole.nombre);
 }
 
 main()
   .catch((error) => {
-    console.error(error);
+    console.error("Error ejecutando seed:", error);
     process.exit(1);
   })
   .finally(async () => {
