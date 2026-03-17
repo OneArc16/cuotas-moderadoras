@@ -1,9 +1,11 @@
 "use server";
 
+import { isAPIError } from "better-auth/api";
 import { revalidatePath } from "next/cache";
-import { hash } from "bcryptjs";
+import { headers } from "next/headers";
 import { z } from "zod";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const resetColaboradorPasswordSchema = z
@@ -49,7 +51,10 @@ export async function resetColaboradorPassword(
 
   const colaborador = await prisma.usuario.findUnique({
     where: { id },
-    select: { id: true },
+    select: {
+      id: true,
+      authUserId: true,
+    },
   });
 
   if (!colaborador) {
@@ -59,20 +64,50 @@ export async function resetColaboradorPassword(
     };
   }
 
-  const passwordHash = await hash(password, 10);
+  if (!colaborador.authUserId) {
+    return {
+      success: false,
+      message:
+        "Este colaborador no está vinculado a Better Auth. Primero hay que vincularlo.",
+    };
+  }
 
-  await prisma.usuario.update({
-    where: { id },
-    data: {
-      passwordHash,
-    },
-  });
+  try {
+    await auth.api.setUserPassword({
+      body: {
+        userId: colaborador.authUserId,
+        newPassword: password,
+      },
+      headers: await headers(),
+    });
 
-  revalidatePath("/colaboradores");
-  revalidatePath(`/colaboradores/${id}/editar`);
+    await prisma.usuario.update({
+      where: { id },
+      data: {
+        passwordHash: "AUTH_MANAGED",
+      },
+    });
 
-  return {
-    success: true,
-    message: "Contraseña actualizada correctamente.",
-  };
+    revalidatePath("/colaboradores");
+    revalidatePath(`/colaboradores/${id}/editar`);
+
+    return {
+      success: true,
+      message: "Contraseña actualizada correctamente.",
+    };
+  } catch (error) {
+    if (isAPIError(error)) {
+      return {
+        success: false,
+        message: error.message || "No se pudo actualizar la contraseña.",
+      };
+    }
+
+    console.error("Error al resetear contraseña del colaborador:", error);
+
+    return {
+      success: false,
+      message: "No se pudo actualizar la contraseña.",
+    };
+  }
 }

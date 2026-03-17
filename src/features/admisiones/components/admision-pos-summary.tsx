@@ -1,4 +1,4 @@
-type AdmisionPosSummaryProps = {
+﻿type AdmisionPosSummaryProps = {
   paciente: null | {
     nombreCompleto: string;
     tipoDocumento: string;

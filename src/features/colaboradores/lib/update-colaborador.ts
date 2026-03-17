@@ -1,9 +1,14 @@
 "use server";
 
+import { isAPIError } from "better-auth/api";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+import { normalizeLoginUsername } from "./normalize-login-username";
 
 const updateColaboradorSchema = z.object({
   id: z.coerce.number().int().positive("Colaborador inválido."),
@@ -17,10 +22,8 @@ const updateColaboradorSchema = z.object({
   email: z
     .string()
     .trim()
-    .optional()
-    .refine((value) => !value || z.string().email().safeParse(value).success, {
-      message: "El correo no es válido.",
-    }),
+    .min(1, "El correo es obligatorio.")
+    .email("El correo no es válido."),
   username: z.string().trim().min(3, "El username es obligatorio."),
   rolId: z.coerce.number().int().positive("Debes seleccionar un rol."),
   estado: z.enum(["ACTIVO", "INACTIVO", "BLOQUEADO"]),
@@ -61,14 +64,43 @@ export async function updateColaborador(
 
   const data = parsed.data;
 
-  const emailNormalizado = data.email?.trim()
-    ? data.email.trim().toLowerCase()
-    : null;
-  const usernameNormalizado = data.username.trim().toLowerCase();
+  const emailNormalizado = data.email.trim().toLowerCase();
+  const usernameVisual = data.username.trim();
+  const usernameNormalizado = normalizeLoginUsername(usernameVisual);
   const numeroDocumentoNormalizado = data.numeroDocumento.trim().toUpperCase();
   const telefonoNormalizado = data.telefono?.trim()
     ? data.telefono.trim().toUpperCase()
     : null;
+
+  const primerNombre = data.primerNombre.trim().toUpperCase();
+  const segundoNombre = data.segundoNombre?.trim()
+    ? data.segundoNombre.trim().toUpperCase()
+    : null;
+  const primerApellido = data.primerApellido.trim().toUpperCase();
+  const segundoApellido = data.segundoApellido?.trim()
+    ? data.segundoApellido.trim().toUpperCase()
+    : null;
+
+  const nombreCompleto = [
+    primerNombre,
+    segundoNombre,
+    primerApellido,
+    segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (!usernameNormalizado) {
+    return {
+      success: false,
+      message: "El username no es válido.",
+      errors: {
+        username: [
+          "Usa solo letras, números, punto o guion bajo. No uses tildes ni eñe.",
+        ],
+      },
+    };
+  }
 
   const [
     colaboradorActual,
@@ -79,7 +111,7 @@ export async function updateColaborador(
   ] = await Promise.all([
     prisma.usuario.findUnique({
       where: { id: data.id },
-      select: { id: true },
+      select: { id: true, authUserId: true },
     }),
     prisma.usuario.findUnique({
       where: { numeroDocumento: numeroDocumentoNormalizado },
@@ -89,12 +121,10 @@ export async function updateColaborador(
       where: { username: usernameNormalizado },
       select: { id: true },
     }),
-    emailNormalizado
-      ? prisma.usuario.findUnique({
-          where: { email: emailNormalizado },
-          select: { id: true },
-        })
-      : Promise.resolve(null),
+    prisma.usuario.findUnique({
+      where: { email: emailNormalizado },
+      select: { id: true },
+    }),
     prisma.rol.findUnique({
       where: { id: data.rolId },
       select: { id: true, estado: true },
@@ -105,6 +135,14 @@ export async function updateColaborador(
     return {
       success: false,
       message: "El colaborador no existe.",
+    };
+  }
+
+  if (!colaboradorActual.authUserId) {
+    return {
+      success: false,
+      message:
+        "Este colaborador no está vinculado a Better Auth. Primero hay que vincularlo.",
     };
   }
 
@@ -148,32 +186,84 @@ export async function updateColaborador(
     };
   }
 
-  await prisma.usuario.update({
-    where: { id: data.id },
-    data: {
-      tipoDocumento: data.tipoDocumento,
-      numeroDocumento: numeroDocumentoNormalizado,
-      primerNombre: data.primerNombre.trim().toUpperCase(),
-      segundoNombre: data.segundoNombre?.trim()
-        ? data.segundoNombre.trim().toUpperCase()
-        : null,
-      primerApellido: data.primerApellido.trim().toUpperCase(),
-      segundoApellido: data.segundoApellido?.trim()
-        ? data.segundoApellido.trim().toUpperCase()
-        : null,
-      telefono: telefonoNormalizado,
+  try {
+    const authData: Record<string, string> = {
+      name: nombreCompleto,
       email: emailNormalizado,
       username: usernameNormalizado,
-      estado: data.estado,
-      rolId: data.rolId,
-    },
-  });
+      displayUsername: usernameVisual,
+    };
 
-  revalidatePath("/colaboradores");
-  revalidatePath(`/colaboradores/${data.id}/editar`);
+    await auth.api.adminUpdateUser({
+      body: {
+        userId: colaboradorActual.authUserId,
+        data: authData,
+      },
+      headers: await headers(),
+    });
 
-  return {
-    success: true,
-    message: "Colaborador actualizado correctamente.",
-  };
+    await prisma.usuario.update({
+      where: { id: data.id },
+      data: {
+        tipoDocumento: data.tipoDocumento,
+        numeroDocumento: numeroDocumentoNormalizado,
+        primerNombre,
+        segundoNombre,
+        primerApellido,
+        segundoApellido,
+        telefono: telefonoNormalizado,
+        email: emailNormalizado,
+        username: usernameNormalizado,
+        passwordHash: "AUTH_MANAGED",
+        estado: data.estado,
+        rolId: data.rolId,
+      },
+    });
+
+    revalidatePath("/colaboradores");
+    revalidatePath(`/colaboradores/${data.id}/editar`);
+
+    return {
+      success: true,
+      message: "Colaborador actualizado correctamente.",
+    };
+  } catch (error) {
+    if (isAPIError(error)) {
+      const message = error.message.toLowerCase();
+
+      if (message.includes("username")) {
+        return {
+          success: false,
+          message: "Ese username no es válido o ya existe en Better Auth.",
+          errors: {
+            username: [
+              "Usa solo letras, números, punto o guion bajo. No uses tildes ni eñe.",
+            ],
+          },
+        };
+      }
+
+      if (message.includes("email")) {
+        return {
+          success: false,
+          message: "Ese correo ya existe en Better Auth.",
+          errors: {
+            email: ["Ese correo ya existe en Better Auth."],
+          },
+        };
+      }
+
+      return {
+        success: false,
+        message: error.message || "No se pudo actualizar el colaborador.",
+      };
+    }
+
+    console.error("Error al actualizar colaborador:", error);
+
+    return {
+      success: false,
+      message: "No se pudo actualizar el colaborador.",
+    };
+  }
 }

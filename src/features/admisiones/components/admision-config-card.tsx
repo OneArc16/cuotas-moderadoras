@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { AdmisionPosSummary } from "@/features/admisiones/components/admision-pos-summary";
 import { createAdmisionWithMovimientoAction } from "@/features/admisiones/lib/create-admision-with-movimiento-action";
@@ -464,9 +465,12 @@ export function AdmisionConfigCard({
           message: result.message,
           fieldErrors: result.fieldErrors,
         });
+        toast.error(result.message);
         return;
       }
 
+      toast.success("Admisión registrada correctamente");
+      setAdmisionStatus({ kind: "idle" });
       onAdmisionRegistered();
     });
   }
@@ -553,7 +557,7 @@ export function AdmisionConfigCard({
           </span>
 
           <span className="text-2xl leading-none text-muted-foreground">
-            {isOpen ? "−" : "+"}
+            {isOpen ? "-" : "+"}
           </span>
         </div>
       </button>
@@ -1056,3 +1060,6 @@ export function AdmisionConfigCard({
     </section>
   );
 }
+
+
+

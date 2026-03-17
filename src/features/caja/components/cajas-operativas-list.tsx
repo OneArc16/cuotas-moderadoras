@@ -1,4 +1,4 @@
-import { CloseJornadaCajaDialog } from "@/features/caja/components/close-jornada-caja-dialog";
+﻿import { CloseJornadaCajaDialog } from "@/features/caja/components/close-jornada-caja-dialog";
 import { JornadaRecaudoKpis } from "@/features/caja/components/jornada-recaudo-kpis";
 import { OpenJornadaCajaDialog } from "@/features/caja/components/open-jornada-caja-dialog";
 import { ReopenJornadaCajaDialog } from "@/features/caja/components/reopen-jornada-caja-dialog";
@@ -38,7 +38,7 @@ function getEstadoBadgeClasses(
     case "REABIERTA":
       return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
     case "CERRADA":
-      return "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+      return "bg-secondary text-secondary-foreground dark:bg-secondary dark:text-secondary-foreground";
     default:
       return "bg-muted text-muted-foreground";
   }
@@ -232,3 +232,5 @@ export function CajasOperativasList({
     </div>
   );
 }
+
+
