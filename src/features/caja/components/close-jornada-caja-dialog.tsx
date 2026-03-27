@@ -22,7 +22,6 @@ import { Textarea } from "@/components/ui/textarea";
 type CloseJornadaCajaDialogProps = {
   jornadaId: number;
   cajaNombre: string;
-  pisoNombre: string;
   saldoEsperado: string;
 };
 
@@ -53,7 +52,6 @@ function parseMoneyInput(value: string) {
 export function CloseJornadaCajaDialog({
   jornadaId,
   cajaNombre,
-  pisoNombre,
   saldoEsperado,
 }: CloseJornadaCajaDialogProps) {
   const router = useRouter();
@@ -63,16 +61,11 @@ export function CloseJornadaCajaDialog({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const saldoEsperadoNumber = useMemo(
-    () => Number(saldoEsperado) || 0,
-    [saldoEsperado],
-  );
-
+  const saldoEsperadoNumber = useMemo(() => Number(saldoEsperado) || 0, [saldoEsperado]);
   const efectivoContadoNumber = useMemo(
     () => parseMoneyInput(efectivoContado),
     [efectivoContado],
   );
-
   const diferencia = useMemo(
     () => efectivoContadoNumber - saldoEsperadoNumber,
     [efectivoContadoNumber, saldoEsperadoNumber],
@@ -129,17 +122,15 @@ export function CloseJornadaCajaDialog({
         <Button className="rounded-2xl">Cerrar caja</Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-2xl rounded-3xl p-0 overflow-hidden">
+      <DialogContent className="max-w-2xl overflow-hidden rounded-3xl p-0">
         <div className="bg-muted/30 p-6">
           <DialogHeader className="space-y-2">
             <DialogTitle className="text-2xl font-semibold tracking-tight">
               Cerrar jornada de caja
             </DialogTitle>
             <DialogDescription className="text-sm leading-6">
-              Vas a cerrar la caja <span className="font-medium text-foreground">{cajaNombre}</span>{" "}
-              del piso <span className="font-medium text-foreground">{pisoNombre}</span>.
-              Registra el efectivo contado para calcular la diferencia frente al
-              saldo esperado.
+              Vas a cerrar la caja <span className="font-medium text-foreground">{cajaNombre}</span>.
+              Registra el efectivo contado para calcular la diferencia frente al saldo esperado.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -147,25 +138,15 @@ export function CloseJornadaCajaDialog({
         <div className="space-y-6 p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border bg-muted/20 p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Saldo esperado
-              </p>
-              <p className="mt-2 text-2xl font-semibold">
-                {formatMoney(saldoEsperadoNumber)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Este valor corresponde al efectivo que debe existir en caja.
-              </p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Saldo esperado</p>
+              <p className="mt-2 text-2xl font-semibold">{formatMoney(saldoEsperadoNumber)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Este valor corresponde al efectivo que debe existir en caja.</p>
             </div>
 
             <div className="rounded-2xl border bg-muted/20 p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Diferencia proyectada
-              </p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Diferencia proyectada</p>
               <p className="mt-2 text-2xl font-semibold">
-                {efectivoContado.trim()
-                  ? formatMoney(diferencia)
-                  : formatMoney(0)}
+                {efectivoContado.trim() ? formatMoney(diferencia) : formatMoney(0)}
               </p>
               <p
                 className={`mt-1 text-sm ${
@@ -220,21 +201,10 @@ export function CloseJornadaCajaDialog({
         </div>
 
         <DialogFooter className="border-t bg-muted/20 px-6 py-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleClose}
-            disabled={isPending}
-            className="rounded-2xl"
-          >
+          <Button type="button" variant="outline" onClick={handleClose} disabled={isPending} className="rounded-2xl">
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isPending || !efectivoContado.trim()}
-            className="rounded-2xl"
-          >
+          <Button type="button" onClick={handleSubmit} disabled={isPending || !efectivoContado.trim()} className="rounded-2xl">
             {isPending ? "Cerrando..." : "Confirmar cierre"}
           </Button>
         </DialogFooter>

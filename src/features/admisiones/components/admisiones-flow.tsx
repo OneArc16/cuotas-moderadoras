@@ -17,6 +17,8 @@ type ContratoOption = {
     codigo: string;
     nombre: string;
   }>;
+  categoriaIds: number[];
+  servicioIds: number[];
 };
 
 type ServicioOption = {
@@ -25,24 +27,16 @@ type ServicioOption = {
   nombre: string;
 };
 
-type TarifaCombo = {
-  contratoId: number;
-  servicioId: number;
-  categoriaAfiliacionId: number | null;
-};
-
 type AdmisionesFlowProps = {
   canStartAdmision: boolean;
   contratos: ContratoOption[];
   servicios: ServicioOption[];
-  tarifaCombos: TarifaCombo[];
 };
 
 export function AdmisionesFlow({
   canStartAdmision,
   contratos,
   servicios,
-  tarifaCombos,
 }: AdmisionesFlowProps) {
   const [openStep, setOpenStep] = useState<1 | 2>(1);
   const [selectedPatient, setSelectedPatient] =
@@ -90,7 +84,6 @@ export function AdmisionesFlow({
         selectedPatient={selectedPatient}
         contratos={contratos}
         servicios={servicios}
-        tarifaCombos={tarifaCombos}
         isOpen={openStep === 2}
         onOpenChange={(nextOpen) => {
           if (!selectedPatient) return;

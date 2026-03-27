@@ -17,13 +17,16 @@ export async function getTarifas() {
     servicioId: tarifa.servicioId,
     contratoId: tarifa.contratoId,
     categoriaAfiliacionId: tarifa.categoriaAfiliacionId,
-    servicio: {
-      id: tarifa.servicio.id,
-      nombre: tarifa.servicio.nombre,
-    },
+    servicio: tarifa.servicio
+      ? {
+          id: tarifa.servicio.id,
+          nombre: tarifa.servicio.nombre,
+        }
+      : null,
     contrato: {
       id: tarifa.contrato.id,
       nombre: tarifa.contrato.nombre,
+      tipo: tarifa.contrato.tipo,
     },
     categoriaAfiliacion: tarifa.categoriaAfiliacion
       ? {

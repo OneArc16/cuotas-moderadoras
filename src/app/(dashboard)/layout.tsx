@@ -1,24 +1,8 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/shared/layout/app-sidebar";
 import { getCurrentUsuario } from "@/lib/current-user";
-
-function buildFullName(usuario: {
-  primerNombre: string;
-  segundoNombre: string | null;
-  primerApellido: string;
-  segundoApellido: string | null;
-}) {
-  return [
-    usuario.primerNombre,
-    usuario.segundoNombre,
-    usuario.primerApellido,
-    usuario.segundoApellido,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
 
 export default async function DashboardLayout({
   children,
@@ -32,8 +16,8 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:p-6">
+    <div className="min-h-screen">
+      <div className="mx-auto flex max-w-[1720px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 xl:flex-row xl:items-start xl:gap-5 xl:px-5 xl:py-5">
         <AppSidebar
           usuario={{
             nombreCompleto: [
@@ -48,8 +32,9 @@ export default async function DashboardLayout({
           }}
         />
 
-        <section className="min-w-0 flex-1">{children}</section>
+        <section className="min-w-0 flex-1 pb-2">{children}</section>
       </div>
     </div>
   );
 }
+

@@ -3,30 +3,24 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import { startSesionOperativa } from "@/features/sesion-operativa/lib/start-sesion-operativa";
 
-type ModuloDisponibleItem = {
+type CajaDisponibleItem = {
   id: number;
   nombre: string;
-  codigo: string;
-  piso: {
+  jornadaActiva: null | {
     id: number;
-    nombre: string;
-    cajas: {
-      id: number;
-      nombre: string;
-      estado: string;
-    }[];
-  } | null;
+    estado: string;
+    fechaOperativa: Date | string;
+  };
 };
 
-type ModuloSelectorProps = {
-  modulos: ModuloDisponibleItem[];
+type CajaSelectorProps = {
+  cajas: CajaDisponibleItem[];
 };
 
-export function ModuloSelector({ modulos }: ModuloSelectorProps) {
+export function CajaSelector({ cajas }: CajaSelectorProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -46,11 +40,11 @@ export function ModuloSelector({ modulos }: ModuloSelectorProps) {
     });
   }
 
-  if (modulos.length === 0) {
+  if (cajas.length === 0) {
     return (
       <div className="rounded-[20px] border border-dashed border-border/70 bg-background/75 p-5">
         <p className="text-sm leading-6 text-muted-foreground">
-          No hay módulos disponibles para iniciar sesión operativa.
+          No hay cajas disponibles para iniciar sesión operativa.
         </p>
       </div>
     );
@@ -58,37 +52,44 @@ export function ModuloSelector({ modulos }: ModuloSelectorProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-      {modulos.map((modulo) => {
-        const cajaAsignada = modulo.piso?.cajas[0] ?? null;
+      {cajas.map((caja) => {
+        const listaParaOperar = Boolean(caja.jornadaActiva);
 
         return (
           <div
-            key={modulo.id}
+            key={caja.id}
             className="rounded-[22px] border border-border/70 bg-background/90 p-4 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--foreground)_30%,transparent)]"
           >
             <div className="space-y-1.5">
-              <span className="inline-flex rounded-full bg-secondary px-2.5 py-1 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Código {modulo.codigo}
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-[0.72rem] font-medium uppercase tracking-[0.14em] ${
+                  listaParaOperar
+                    ? "bg-primary/10 text-primary"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {listaParaOperar
+                  ? `Jornada ${caja.jornadaActiva?.estado.toLowerCase()}`
+                  : "Sin jornada activa"}
               </span>
               <h3 className="text-base font-semibold tracking-[-0.02em] text-foreground">
-                {modulo.nombre}
+                {caja.nombre}
               </h3>
               <p className="text-sm leading-5 text-muted-foreground">
-                Piso: {modulo.piso?.nombre ?? "Sin piso"}
-              </p>
-              <p className="text-sm leading-5 text-muted-foreground">
-                Caja: {cajaAsignada ? cajaAsignada.nombre : "Sin caja activa"}
+                {listaParaOperar
+                  ? "Lista para iniciar sesión operativa."
+                  : "Debes abrir o reabrir la jornada de esta caja antes de operar."}
               </p>
             </div>
 
             <div className="mt-4">
               <Button
                 type="button"
-                onClick={() => cajaAsignada && handleSelect(cajaAsignada.id)}
-                disabled={isPending || !cajaAsignada}
+                onClick={() => handleSelect(caja.id)}
+                disabled={isPending || !listaParaOperar}
                 className="h-10 w-full rounded-2xl text-sm font-semibold"
               >
-                Entrar a este módulo
+                Entrar a esta caja
               </Button>
             </div>
           </div>

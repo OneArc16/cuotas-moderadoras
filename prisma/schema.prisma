@@ -225,7 +225,7 @@ model Servicio {
 
 model TarifaServicio {
   id                    Int           @id @default(autoincrement())
-  servicioId            Int
+  servicioId            Int?
   contratoId            Int
   categoriaAfiliacionId Int?
   tipoCobro             TipoCobro
@@ -236,7 +236,7 @@ model TarifaServicio {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
-  servicio            Servicio             @relation(fields: [servicioId], references: [id])
+  servicio            Servicio?            @relation(fields: [servicioId], references: [id])
   contrato            Contrato             @relation(fields: [contratoId], references: [id])
   categoriaAfiliacion CategoriaAfiliacion? @relation(fields: [categoriaAfiliacionId], references: [id])
 
@@ -262,12 +262,12 @@ model ModuloAtencion {
   id        Int           @id @default(autoincrement())
   nombre    String
   codigo    String        @unique
-  pisoId    Int
+  pisoId    Int?
   estado    GenericStatus @default(ACTIVO)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  piso        Piso              @relation(fields: [pisoId], references: [id])
+  piso        Piso?             @relation(fields: [pisoId], references: [id])
   sesiones    SesionOperativa[]
   admisiones  Admision[]
   movimientos Movimiento[]
@@ -278,12 +278,12 @@ model ModuloAtencion {
 model Caja {
   id        Int           @id @default(autoincrement())
   nombre    String        @unique
-  pisoId    Int
+  pisoId    Int?
   estado    GenericStatus @default(ACTIVO)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  piso        Piso              @relation(fields: [pisoId], references: [id])
+  piso        Piso?             @relation(fields: [pisoId], references: [id])
   jornadas    JornadaCaja[]
   sesiones    SesionOperativa[]
   admisiones  Admision[]
@@ -325,8 +325,8 @@ model JornadaCaja {
 model SesionOperativa {
   id               Int                   @id @default(autoincrement())
   usuarioId        Int
-  moduloAtencionId Int
-  pisoId           Int
+  moduloAtencionId Int?
+  pisoId           Int?
   cajaId           Int
   fechaOperativa   DateTime
   horaInicio       DateTime
@@ -336,8 +336,8 @@ model SesionOperativa {
   updatedAt        DateTime              @updatedAt
 
   usuario        Usuario        @relation(fields: [usuarioId], references: [id])
-  moduloAtencion ModuloAtencion @relation(fields: [moduloAtencionId], references: [id])
-  piso           Piso           @relation(fields: [pisoId], references: [id])
+  moduloAtencion ModuloAtencion? @relation(fields: [moduloAtencionId], references: [id])
+  piso           Piso?          @relation(fields: [pisoId], references: [id])
   caja           Caja           @relation(fields: [cajaId], references: [id])
 
   admisiones Admision[]
@@ -355,8 +355,8 @@ model Admision {
   estado                AdmisionEstado @default(REGISTRADA)
   motivoEstado          String?
 
-  pisoId                 Int
-  moduloAtencionId       Int
+  pisoId                 Int?
+  moduloAtencionId       Int?
   cajaId                 Int
   jornadaCajaId          Int
   sesionOperativaId      Int
@@ -395,8 +395,8 @@ model Admision {
   contrato             Contrato             @relation(fields: [contratoId], references: [id])
   categoriaAfiliacion  CategoriaAfiliacion? @relation(fields: [categoriaAfiliacionId], references: [id])
   tarifaAplicada       TarifaServicio?      @relation(fields: [tarifaIdAplicada], references: [id])
-  piso                 Piso                 @relation(fields: [pisoId], references: [id])
-  moduloAtencion       ModuloAtencion       @relation(fields: [moduloAtencionId], references: [id])
+  piso                 Piso?                @relation(fields: [pisoId], references: [id])
+  moduloAtencion       ModuloAtencion?      @relation(fields: [moduloAtencionId], references: [id])
   caja                 Caja                 @relation(fields: [cajaId], references: [id])
   jornadaCaja          JornadaCaja          @relation(fields: [jornadaCajaId], references: [id])
   sesionOperativa      SesionOperativa      @relation(fields: [sesionOperativaId], references: [id])
@@ -414,8 +414,8 @@ model Movimiento {
   admisionId       Int
   jornadaCajaId    Int
   cajaId           Int
-  pisoId           Int
-  moduloAtencionId Int
+  pisoId           Int?
+  moduloAtencionId Int?
   usuarioId        Int
   tipoMovimiento   MovimientoTipo
   naturaleza       MovimientoNaturaleza
@@ -430,8 +430,8 @@ model Movimiento {
   admision       Admision       @relation(fields: [admisionId], references: [id])
   jornadaCaja    JornadaCaja    @relation(fields: [jornadaCajaId], references: [id])
   caja           Caja           @relation(fields: [cajaId], references: [id])
-  piso           Piso           @relation(fields: [pisoId], references: [id])
-  moduloAtencion ModuloAtencion @relation(fields: [moduloAtencionId], references: [id])
+  piso           Piso?          @relation(fields: [pisoId], references: [id])
+  moduloAtencion ModuloAtencion? @relation(fields: [moduloAtencionId], references: [id])
   usuario        Usuario        @relation(fields: [usuarioId], references: [id])
 
   @@index([createdAt])
@@ -524,3 +524,6 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+
+

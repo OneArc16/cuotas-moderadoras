@@ -1,13 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { getBogotaOperationalDayRange } from "@/lib/fecha-operativa-bogota";
 import { getJornadaRecaudoSummary } from "@/features/caja/lib/get-jornada-recaudo-summary";
+import { getBogotaOperationalDayRange } from "@/lib/fecha-operativa-bogota";
 
 export type CajaOperativaItem = {
   caja: {
-    id: number;
-    nombre: string;
-  };
-  piso: {
     id: number;
     nombre: string;
   };
@@ -39,20 +35,11 @@ export async function getCajasOperativas(): Promise<CajaOperativaItem[]> {
   const cajas = await prisma.caja.findMany({
     where: {
       estado: "ACTIVO",
-      piso: {
-        estado: "ACTIVO",
-      },
     },
-    orderBy: [{ piso: { nombre: "asc" } }, { nombre: "asc" }],
+    orderBy: [{ nombre: "asc" }],
     select: {
       id: true,
       nombre: true,
-      piso: {
-        select: {
-          id: true,
-          nombre: true,
-        },
-      },
       jornadas: {
         where: {
           fechaOperativa: {
@@ -87,7 +74,6 @@ export async function getCajasOperativas(): Promise<CajaOperativaItem[]> {
             id: caja.id,
             nombre: caja.nombre,
           },
-          piso: caja.piso,
           jornadaActual: null,
         };
       }
@@ -101,7 +87,6 @@ export async function getCajasOperativas(): Promise<CajaOperativaItem[]> {
           id: caja.id,
           nombre: caja.nombre,
         },
-        piso: caja.piso,
         jornadaActual: {
           id: jornada.id,
           fechaOperativa: jornada.fechaOperativa,

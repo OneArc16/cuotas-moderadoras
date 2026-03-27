@@ -18,9 +18,7 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-export function CajaDashboardSummary({
-  items,
-}: CajaDashboardSummaryProps) {
+export function CajaDashboardSummary({ items }: CajaDashboardSummaryProps) {
   const totalCajas = items.length;
 
   const jornadasAbiertas = items.filter(
@@ -57,8 +55,8 @@ export function CajaDashboardSummary({
           Resumen de recaudo
         </h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Vista general del estado de las cajas por piso, el recaudo total del
-          día y lo que realmente debe cuadrar en efectivo al cierre.
+          Vista general del estado de las cajas, el recaudo total del día y lo
+          que realmente debe cuadrar en efectivo al cierre.
         </p>
       </div>
 
@@ -67,9 +65,7 @@ export function CajaDashboardSummary({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Recaudo total
           </p>
-          <p className="mt-2 text-2xl font-semibold">
-            {formatMoney(recaudoTotal)}
-          </p>
+          <p className="mt-2 text-2xl font-semibold">{formatMoney(recaudoTotal)}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Suma de todas las entradas registradas.
           </p>
@@ -79,9 +75,7 @@ export function CajaDashboardSummary({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Recaudo en efectivo
           </p>
-          <p className="mt-2 text-2xl font-semibold">
-            {formatMoney(recaudoEfectivo)}
-          </p>
+          <p className="mt-2 text-2xl font-semibold">{formatMoney(recaudoEfectivo)}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Lo que debe existir físicamente en caja.
           </p>
@@ -91,9 +85,7 @@ export function CajaDashboardSummary({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Recaudo electrónico
           </p>
-          <p className="mt-2 text-2xl font-semibold">
-            {formatMoney(recaudoElectronico)}
-          </p>
+          <p className="mt-2 text-2xl font-semibold">{formatMoney(recaudoElectronico)}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Nequi, Daviplata, tarjeta, transferencias y otros.
           </p>
@@ -103,9 +95,7 @@ export function CajaDashboardSummary({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Saldo esperado
           </p>
-          <p className="mt-2 text-2xl font-semibold">
-            {formatMoney(saldoEsperado)}
-          </p>
+          <p className="mt-2 text-2xl font-semibold">{formatMoney(saldoEsperado)}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Referencia para el cierre de efectivo.
           </p>

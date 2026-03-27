@@ -3,20 +3,19 @@ import { PageHeader } from "@/components/shared/page/page-header";
 import { CajaForm } from "@/features/parametrizacion/cajas/components/caja-form";
 import { CajasList } from "@/features/parametrizacion/cajas/components/cajas-list";
 import { getCajas } from "@/features/parametrizacion/cajas/lib/get-cajas";
-import { getPisos } from "@/features/parametrizacion/pisos/lib/get-pisos";
 
 export default async function CajasPage() {
-  const [cajas, pisos] = await Promise.all([getCajas(), getPisos()]);
+  const cajas = await getCajas();
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Parametrización"
         title="Cajas"
-        description="Aquí construiremos la gestión de cajas por piso."
+        description="Aquí gestionas las cajas operativas que se usarán directamente en la sesión diaria."
       />
 
-      <CajaForm pisos={pisos} />
+      <CajaForm />
 
       <Card>
         <CardHeader>
@@ -27,7 +26,7 @@ export default async function CajasPage() {
             Total de cajas registradas: {cajas.length}
           </p>
 
-          <CajasList cajas={cajas} pisos={pisos} />
+          <CajasList cajas={cajas} />
         </CardContent>
       </Card>
     </div>

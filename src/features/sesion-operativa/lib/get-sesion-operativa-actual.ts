@@ -10,19 +10,6 @@ export async function getSesionOperativaActual() {
       estado: "ACTIVA",
     },
     include: {
-      moduloAtencion: {
-        select: {
-          id: true,
-          nombre: true,
-          codigo: true,
-        },
-      },
-      piso: {
-        select: {
-          id: true,
-          nombre: true,
-        },
-      },
       caja: {
         select: {
           id: true,

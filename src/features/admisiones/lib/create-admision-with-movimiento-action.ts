@@ -143,7 +143,8 @@ function parseDescuentoInput(rawValue: string | undefined) {
 
   if (Number.isNaN(valorFijo) || valorFijo < 0) {
     return {
-      error: "El descuento debe ser un valor fijo o un porcentaje válido. Ejemplo: 5000 o 10%.",
+      error:
+        "El descuento debe ser un valor fijo o un porcentaje válido. Ejemplo: 5000 o 10%.",
     } as const;
   }
 
@@ -203,9 +204,7 @@ export async function createAdmisionWithMovimientoAction(
     select: {
       id: true,
       fechaOperativa: true,
-      pisoId: true,
       cajaId: true,
-      moduloAtencionId: true,
     },
   });
 
@@ -311,6 +310,30 @@ export async function createAdmisionWithMovimientoAction(
     };
   }
 
+  if (contrato.tipo !== "PARTICULAR" && !data.categoriaAfiliacionId) {
+    return {
+      ok: false,
+      message: "Debes seleccionar una categoría para este contrato.",
+      fieldErrors: {
+        categoriaAfiliacionId: [
+          "Debes seleccionar una categoría para este contrato.",
+        ],
+      },
+    };
+  }
+
+  if (contrato.tipo === "PARTICULAR" && data.categoriaAfiliacionId) {
+    return {
+      ok: false,
+      message: "Los contratos particulares no usan categoría para el cobro.",
+      fieldErrors: {
+        categoriaAfiliacionId: [
+          "Los contratos particulares no usan categoría para el cobro.",
+        ],
+      },
+    };
+  }
+
   if (data.categoriaAfiliacionId) {
     if (!categoriaAfiliacion || categoriaAfiliacion.estado !== "ACTIVO") {
       return {
@@ -355,7 +378,7 @@ export async function createAdmisionWithMovimientoAction(
   if (!tarifa) {
     return {
       ok: false,
-      message: "No existe una tarifa vigente para la combinación seleccionada.",
+      message: "No existe una tarifa vigente para la selección actual.",
     };
   }
 
@@ -421,10 +444,11 @@ export async function createAdmisionWithMovimientoAction(
         pacienteId: paciente.id,
         servicioId: servicio.id,
         contratoId: contrato.id,
-        categoriaAfiliacionId: categoriaAfiliacion?.id ?? null,
+        categoriaAfiliacionId:
+          contrato.tipo === "PARTICULAR" ? null : categoriaAfiliacion?.id ?? null,
         tipoCobro: tarifa.tipoCobro,
-        pisoId: sesionOperativa.pisoId,
-        moduloAtencionId: sesionOperativa.moduloAtencionId,
+        pisoId: null,
+        moduloAtencionId: null,
         cajaId: sesionOperativa.cajaId,
         jornadaCajaId: jornadaCaja.id,
         sesionOperativaId: sesionOperativa.id,
@@ -459,8 +483,8 @@ export async function createAdmisionWithMovimientoAction(
         admisionId: admision.id,
         jornadaCajaId: jornadaCaja.id,
         cajaId: sesionOperativa.cajaId,
-        pisoId: sesionOperativa.pisoId,
-        moduloAtencionId: sesionOperativa.moduloAtencionId,
+        pisoId: null,
+        moduloAtencionId: null,
         usuarioId: currentUser.id,
         tipoMovimiento: "COBRO",
         naturaleza: "ENTRADA",

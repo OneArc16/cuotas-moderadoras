@@ -22,7 +22,6 @@ import { Textarea } from "@/components/ui/textarea";
 type OpenJornadaCajaDialogProps = {
   cajaId: number;
   cajaNombre: string;
-  pisoNombre: string;
 };
 
 function formatMoney(value: number | string) {
@@ -52,7 +51,6 @@ function parseMoneyInput(value: string) {
 export function OpenJornadaCajaDialog({
   cajaId,
   cajaNombre,
-  pisoNombre,
 }: OpenJornadaCajaDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -117,10 +115,7 @@ export function OpenJornadaCajaDialog({
               Abrir jornada de caja
             </DialogTitle>
             <DialogDescription className="text-sm leading-6">
-              Vas a abrir la caja{" "}
-              <span className="font-medium text-foreground">{cajaNombre}</span>{" "}
-              del piso{" "}
-              <span className="font-medium text-foreground">{pisoNombre}</span>.
+              Vas a abrir la caja <span className="font-medium text-foreground">{cajaNombre}</span>.
               Registra la base inicial con la que comenzará la jornada.
             </DialogDescription>
           </DialogHeader>
@@ -129,25 +124,15 @@ export function OpenJornadaCajaDialog({
         <div className="space-y-6 p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border bg-muted/20 p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Caja
-              </p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Caja</p>
               <p className="mt-2 text-base font-semibold">{cajaNombre}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Punto de recaudo operativo.
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">Punto de recaudo operativo.</p>
             </div>
 
             <div className="rounded-2xl border bg-muted/20 p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Base inicial proyectada
-              </p>
-              <p className="mt-2 text-2xl font-semibold">
-                {formatMoney(baseInicialNumber)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Este valor será el punto de partida del efectivo esperado.
-              </p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Base inicial proyectada</p>
+              <p className="mt-2 text-2xl font-semibold">{formatMoney(baseInicialNumber)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Este valor será el punto de partida del efectivo esperado.</p>
             </div>
           </div>
 
@@ -188,21 +173,10 @@ export function OpenJornadaCajaDialog({
         </div>
 
         <DialogFooter className="border-t bg-muted/20 px-6 py-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleClose}
-            disabled={isPending}
-            className="rounded-2xl"
-          >
+          <Button type="button" variant="outline" onClick={handleClose} disabled={isPending} className="rounded-2xl">
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isPending || !baseInicial.trim()}
-            className="rounded-2xl"
-          >
+          <Button type="button" onClick={handleSubmit} disabled={isPending || !baseInicial.trim()} className="rounded-2xl">
             {isPending ? "Abriendo..." : "Confirmar apertura"}
           </Button>
         </DialogFooter>

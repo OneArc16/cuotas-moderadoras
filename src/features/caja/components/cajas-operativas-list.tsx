@@ -1,4 +1,4 @@
-﻿import { CloseJornadaCajaDialog } from "@/features/caja/components/close-jornada-caja-dialog";
+import { CloseJornadaCajaDialog } from "@/features/caja/components/close-jornada-caja-dialog";
 import { JornadaRecaudoKpis } from "@/features/caja/components/jornada-recaudo-kpis";
 import { OpenJornadaCajaDialog } from "@/features/caja/components/open-jornada-caja-dialog";
 import { ReopenJornadaCajaDialog } from "@/features/caja/components/reopen-jornada-caja-dialog";
@@ -56,7 +56,7 @@ export function CajasOperativasList({
           No hay cajas disponibles
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Primero asegúrate de tener pisos y cajas activas en parametrización.
+          Primero asegúrate de tener cajas activas en parametrización.
         </p>
       </section>
     );
@@ -81,9 +81,7 @@ export function CajasOperativasList({
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    Piso · {item.piso.nombre}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Caja operativa</p>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-medium ${getEstadoBadgeClasses(
                       estado,
@@ -98,8 +96,7 @@ export function CajasOperativasList({
                 </h2>
 
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                  Resumen operativo de la caja por piso, con recaudo total y
-                  desglose por método de pago.
+                  Resumen operativo de la caja, con recaudo total y desglose por método de pago.
                 </p>
               </div>
 
@@ -108,7 +105,6 @@ export function CajasOperativasList({
                   <OpenJornadaCajaDialog
                     cajaId={item.caja.id}
                     cajaNombre={item.caja.nombre}
-                    pisoNombre={item.piso.nombre}
                   />
                 ) : null}
 
@@ -116,7 +112,6 @@ export function CajasOperativasList({
                   <CloseJornadaCajaDialog
                     jornadaId={jornada.id}
                     cajaNombre={item.caja.nombre}
-                    pisoNombre={item.piso.nombre}
                     saldoEsperado={jornada.saldoEsperado}
                   />
                 ) : null}
@@ -125,7 +120,6 @@ export function CajasOperativasList({
                   <ReopenJornadaCajaDialog
                     jornadaId={jornada.id}
                     cajaNombre={item.caja.nombre}
-                    pisoNombre={item.piso.nombre}
                   />
                 ) : null}
               </div>
@@ -135,39 +129,23 @@ export function CajasOperativasList({
               <div className="mt-6 space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Fecha operativa
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      {formatDate(jornada.fechaOperativa)}
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Fecha operativa</p>
+                    <p className="mt-2 text-base font-semibold">{formatDate(jornada.fechaOperativa)}</p>
                   </div>
 
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Base inicial
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      {formatMoney(jornada.baseInicial)}
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Base inicial</p>
+                    <p className="mt-2 text-base font-semibold">{formatMoney(jornada.baseInicial)}</p>
                   </div>
 
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Saldo esperado
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      {formatMoney(jornada.saldoEsperado)}
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Saldo esperado</p>
+                    <p className="mt-2 text-base font-semibold">{formatMoney(jornada.saldoEsperado)}</p>
                   </div>
 
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Total cobros modelo
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      {formatMoney(jornada.totalCobros)}
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Total cobros modelo</p>
+                    <p className="mt-2 text-base font-semibold">{formatMoney(jornada.totalCobros)}</p>
                   </div>
                 </div>
 
@@ -175,30 +153,18 @@ export function CajasOperativasList({
 
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Devoluciones acumuladas
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      {formatMoney(jornada.totalDevoluciones)}
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Devoluciones acumuladas</p>
+                    <p className="mt-2 text-base font-semibold">{formatMoney(jornada.totalDevoluciones)}</p>
                   </div>
 
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Efectivo contado
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      {formatMoney(jornada.efectivoContado)}
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Efectivo contado</p>
+                    <p className="mt-2 text-base font-semibold">{formatMoney(jornada.efectivoContado)}</p>
                   </div>
 
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Diferencia de cierre
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      {formatMoney(jornada.diferenciaCierre)}
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Diferencia de cierre</p>
+                    <p className="mt-2 text-base font-semibold">{formatMoney(jornada.diferenciaCierre)}</p>
                   </div>
                 </div>
 
@@ -208,21 +174,16 @@ export function CajasOperativasList({
                       Jornada cerrada
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Si necesitas continuar operando esta caja, la acción
-                      correcta es reabrir la jornada, no volver a abrir una
-                      nueva.
+                      Si necesitas continuar operando esta caja, la acción correcta es reabrir la jornada, no volver a abrir una nueva.
                     </p>
                   </div>
                 ) : null}
               </div>
             ) : (
               <div className="mt-6 rounded-2xl border border-dashed bg-muted/20 p-5">
-                <p className="text-sm font-medium text-foreground">
-                  Sin jornada operativa
-                </p>
+                <p className="text-sm font-medium text-foreground">Sin jornada operativa</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Esta caja aún no tiene jornada registrada. Puedes abrirla con
-                  base inicial para empezar a operar.
+                  Esta caja aún no tiene jornada registrada. Puedes abrirla con base inicial para empezar a operar.
                 </p>
               </div>
             )}
@@ -232,5 +193,3 @@ export function CajasOperativasList({
     </div>
   );
 }
-
-

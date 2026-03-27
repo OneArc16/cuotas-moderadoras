@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 
 type CreateCajaInput = {
   nombre: string;
-  pisoId: number;
 };
 
 export async function createCaja(input: CreateCajaInput) {
@@ -18,7 +17,6 @@ export async function createCaja(input: CreateCajaInput) {
   await prisma.caja.create({
     data: {
       nombre,
-      pisoId: input.pisoId,
     },
   });
 

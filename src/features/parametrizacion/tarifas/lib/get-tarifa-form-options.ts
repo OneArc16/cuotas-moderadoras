@@ -16,6 +16,7 @@ export async function getTarifaFormOptions() {
       select: {
         id: true,
         nombre: true,
+        tipo: true,
         categorias: {
           where: { estado: "ACTIVO" },
           orderBy: {

@@ -10,15 +10,6 @@ type AdmisionPageContext = {
   sesionOperativa: null | {
     id: number;
     fechaOperativa: Date;
-    moduloAtencion: {
-      id: number;
-      nombre: string;
-      codigo: string;
-    };
-    piso: {
-      id: number;
-      nombre: string;
-    };
     caja: {
       id: number;
       nombre: string;
@@ -42,16 +33,13 @@ type AdmisionPageContext = {
       codigo: string;
       nombre: string;
     }>;
+    categoriaIds: number[];
+    servicioIds: number[];
   }>;
   servicios: Array<{
     id: number;
     codigo: string | null;
     nombre: string;
-  }>;
-  tarifaCombos: Array<{
-    contratoId: number;
-    servicioId: number;
-    categoriaAfiliacionId: number | null;
   }>;
 };
 
@@ -83,6 +71,8 @@ type ContratoAccumulator = {
       nombre: string;
     }
   >;
+  categoriaIds: Set<number>;
+  servicioIds: Set<number>;
 };
 
 export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
@@ -94,7 +84,7 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
 
   const now = new Date();
 
-  const [sesionOperativa, tarifasActivas] = await Promise.all([
+  const [sesionOperativa, servicios, tarifasActivas] = await Promise.all([
     prisma.sesionOperativa.findFirst({
       where: {
         usuarioId: usuario.id,
@@ -106,19 +96,6 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
       select: {
         id: true,
         fechaOperativa: true,
-        moduloAtencion: {
-          select: {
-            id: true,
-            nombre: true,
-            codigo: true,
-          },
-        },
-        piso: {
-          select: {
-            id: true,
-            nombre: true,
-          },
-        },
         caja: {
           select: {
             id: true,
@@ -127,19 +104,47 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
         },
       },
     }),
+    prisma.servicio.findMany({
+      where: {
+        estado: "ACTIVO",
+      },
+      orderBy: {
+        nombre: "asc",
+      },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+      },
+    }),
     prisma.tarifaServicio.findMany({
       where: {
         estado: "ACTIVO",
         fechaInicioVigencia: {
           lte: now,
         },
+        OR: [
+          { fechaFinVigencia: null },
+          {
+            fechaFinVigencia: {
+              gte: now,
+            },
+          },
+        ],
+        contrato: {
+          is: {
+            estado: "ACTIVO",
+          },
+        },
         AND: [
           {
             OR: [
-              { fechaFinVigencia: null },
+              { servicioId: null },
               {
-                fechaFinVigencia: {
-                  gte: now,
+                servicio: {
+                  is: {
+                    estado: "ACTIVO",
+                  },
                 },
               },
             ],
@@ -157,18 +162,9 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
             ],
           },
         ],
-        contrato: {
-          is: {
-            estado: "ACTIVO",
-          },
-        },
-        servicio: {
-          is: {
-            estado: "ACTIVO",
-          },
-        },
       },
       select: {
+        tipoCobro: true,
         contratoId: true,
         servicioId: true,
         categoriaAfiliacionId: true,
@@ -177,13 +173,6 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
             id: true,
             nombre: true,
             tipo: true,
-          },
-        },
-        servicio: {
-          select: {
-            id: true,
-            codigo: true,
-            nombre: true,
           },
         },
         categoriaAfiliacion: {
@@ -219,74 +208,42 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
     : null;
 
   const contratosMap = new Map<number, ContratoAccumulator>();
-  const serviciosMap = new Map<
-    number,
-    {
-      id: number;
-      codigo: string | null;
-      nombre: string;
-    }
-  >();
-
-  const tarifaCombosMap = new Map<
-    string,
-    {
-      contratoId: number;
-      servicioId: number;
-      categoriaAfiliacionId: number | null;
-    }
-  >();
 
   for (const tarifa of tarifasActivas) {
-    serviciosMap.set(tarifa.servicio.id, {
-      id: tarifa.servicio.id,
-      codigo: tarifa.servicio.codigo,
-      nombre: tarifa.servicio.nombre,
-    });
+    const contrato =
+      contratosMap.get(tarifa.contrato.id) ??
+      (() => {
+        const nextContrato: ContratoAccumulator = {
+          id: tarifa.contrato.id,
+          nombre: tarifa.contrato.nombre,
+          tipo: tarifa.contrato.tipo,
+          categoriasMap: new Map(),
+          categoriaIds: new Set(),
+          servicioIds: new Set(),
+        };
 
-    const comboKey = `${tarifa.contratoId}-${tarifa.servicioId}-${tarifa.categoriaAfiliacionId ?? "null"}`;
+        contratosMap.set(tarifa.contrato.id, nextContrato);
+        return nextContrato;
+      })();
 
-    if (!tarifaCombosMap.has(comboKey)) {
-      tarifaCombosMap.set(comboKey, {
-        contratoId: tarifa.contratoId,
-        servicioId: tarifa.servicioId,
-        categoriaAfiliacionId: tarifa.categoriaAfiliacionId,
-      });
+    if (tarifa.tipoCobro === "PARTICULAR") {
+      if (tarifa.servicioId) {
+        contrato.servicioIds.add(tarifa.servicioId);
+      }
+
+      continue;
     }
 
-    const existingContrato = contratosMap.get(tarifa.contrato.id);
-
-    if (existingContrato) {
-      if (tarifa.categoriaAfiliacion) {
-        existingContrato.categoriasMap.set(tarifa.categoriaAfiliacion.id, {
-          id: tarifa.categoriaAfiliacion.id,
-          codigo: tarifa.categoriaAfiliacion.codigo,
-          nombre: tarifa.categoriaAfiliacion.nombre,
-        });
-      }
-    } else {
-      const categoriasMap = new Map<
-        number,
-        {
-          id: number;
-          codigo: string;
-          nombre: string;
-        }
-      >();
-
-      if (tarifa.categoriaAfiliacion) {
-        categoriasMap.set(tarifa.categoriaAfiliacion.id, {
-          id: tarifa.categoriaAfiliacion.id,
-          codigo: tarifa.categoriaAfiliacion.codigo,
-          nombre: tarifa.categoriaAfiliacion.nombre,
-        });
-      }
-
-      contratosMap.set(tarifa.contrato.id, {
-        id: tarifa.contrato.id,
-        nombre: tarifa.contrato.nombre,
-        tipo: tarifa.contrato.tipo,
-        categoriasMap,
+    if (
+      tarifa.tipoCobro === "CUOTA_MODERADORA" &&
+      !tarifa.servicioId &&
+      tarifa.categoriaAfiliacion
+    ) {
+      contrato.categoriaIds.add(tarifa.categoriaAfiliacion.id);
+      contrato.categoriasMap.set(tarifa.categoriaAfiliacion.id, {
+        id: tarifa.categoriaAfiliacion.id,
+        codigo: tarifa.categoriaAfiliacion.codigo,
+        nombre: tarifa.categoriaAfiliacion.nombre,
       });
     }
   }
@@ -299,12 +256,21 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
       categorias: Array.from(contrato.categoriasMap.values()).sort((a, b) =>
         a.nombre.localeCompare(b.nombre),
       ),
+      categoriaIds: Array.from(contrato.categoriaIds.values()).sort((a, b) =>
+        a - b,
+      ),
+      servicioIds: Array.from(contrato.servicioIds.values()).sort((a, b) =>
+        a - b,
+      ),
     }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    .filter((contrato) => {
+      if (contrato.tipo === "PARTICULAR") {
+        return contrato.servicioIds.length > 0;
+      }
 
-  const servicios = Array.from(serviciosMap.values()).sort((a, b) =>
-    a.nombre.localeCompare(b.nombre),
-  );
+      return contrato.categoriaIds.length > 0;
+    })
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   return {
     usuario: {
@@ -326,6 +292,5 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
       : null,
     contratos,
     servicios,
-    tarifaCombos: Array.from(tarifaCombosMap.values()),
   };
 }

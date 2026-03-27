@@ -3,22 +3,24 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
-import { toggleTarifaStatus } from "@/features/parametrizacion/tarifas/lib/toggle-tarifa-status";
 import { EditTarifaDialog } from "@/features/parametrizacion/tarifas/components/edit-tarifa-dialog";
+import { toggleTarifaStatus } from "@/features/parametrizacion/tarifas/lib/toggle-tarifa-status";
 
 type TarifaItem = {
   id: number;
-  servicioId: number;
+  servicioId: number | null;
   contratoId: number;
   categoriaAfiliacionId: number | null;
   servicio: {
     id: number;
     nombre: string;
-  };
+  } | null;
   contrato: {
     id: number;
     nombre: string;
+    tipo: string;
   };
   categoriaAfiliacion: {
     id: number;
@@ -39,6 +41,7 @@ type Option = {
 type ContratoOption = {
   id: number;
   nombre: string;
+  tipo: string;
   categorias: {
     id: number;
     categoriaAfiliacionId: number;
@@ -56,9 +59,7 @@ type TarifasListProps = {
 };
 
 function formatTipoCobro(tipoCobro: string) {
-  return tipoCobro === "CUOTA_MODERADORA"
-    ? "Cuota moderadora"
-    : "Particular";
+  return tipoCobro === "CUOTA_MODERADORA" ? "Cuota moderadora" : "Particular";
 }
 
 function formatValor(valor: string) {
@@ -74,7 +75,33 @@ function formatFecha(fechaIso: string) {
   return `${day}/${month}/${year}`;
 }
 
-export function TarifasList({ tarifas, servicios, contratos, }: TarifasListProps) {
+function renderServicioCell(tarifa: TarifaItem) {
+  if (tarifa.tipoCobro === "CUOTA_MODERADORA") {
+    if (tarifa.servicio) {
+      return (
+        <div>
+          <p className="font-medium">{tarifa.servicio.nombre}</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Registro legado por servicio. Actualiza esta tarifa para cobrar solo por categoría.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <p className="font-medium">No aplica al valor</p>
+        <p className="text-xs text-muted-foreground">
+          Se selecciona en admisión solo como registro
+        </p>
+      </div>
+    );
+  }
+
+  return tarifa.servicio?.nombre ?? "—";
+}
+
+export function TarifasList({ tarifas, servicios, contratos }: TarifasListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -88,7 +115,7 @@ export function TarifasList({ tarifas, servicios, contratos, }: TarifasListProps
         toast.error(
           error instanceof Error
             ? error.message
-            : "No se pudo actualizar el estado de la tarifa"
+            : "No se pudo actualizar el estado de la tarifa",
         );
       }
     });
@@ -110,10 +137,10 @@ export function TarifasList({ tarifas, servicios, contratos, }: TarifasListProps
         <thead className="bg-muted/40">
           <tr className="border-b">
             <th className="px-4 py-3 text-left font-medium">ID</th>
-            <th className="px-4 py-3 text-left font-medium">Servicio</th>
             <th className="px-4 py-3 text-left font-medium">Contrato</th>
+            <th className="px-4 py-3 text-left font-medium">Modo</th>
+            <th className="px-4 py-3 text-left font-medium">Servicio</th>
             <th className="px-4 py-3 text-left font-medium">Categoría</th>
-            <th className="px-4 py-3 text-left font-medium">Tipo cobro</th>
             <th className="px-4 py-3 text-left font-medium">Valor</th>
             <th className="px-4 py-3 text-left font-medium">Desde</th>
             <th className="px-4 py-3 text-left font-medium">Estado</th>
@@ -125,13 +152,18 @@ export function TarifasList({ tarifas, servicios, contratos, }: TarifasListProps
           {tarifas.map((tarifa) => (
             <tr key={tarifa.id} className="border-b last:border-b-0">
               <td className="px-4 py-3 align-top">{tarifa.id}</td>
-              <td className="px-4 py-3 align-top">{tarifa.servicio.nombre}</td>
-              <td className="px-4 py-3 align-top">{tarifa.contrato.nombre}</td>
               <td className="px-4 py-3 align-top">
-                {tarifa.categoriaAfiliacion?.nombre ?? "—"}
+                <div>
+                  <p className="font-medium">{tarifa.contrato.nombre}</p>
+                  <p className="text-xs text-muted-foreground">{tarifa.contrato.tipo}</p>
+                </div>
               </td>
               <td className="px-4 py-3 align-top">
                 {formatTipoCobro(tarifa.tipoCobro)}
+              </td>
+              <td className="px-4 py-3 align-top">{renderServicioCell(tarifa)}</td>
+              <td className="px-4 py-3 align-top">
+                {tarifa.categoriaAfiliacion?.nombre ?? "—"}
               </td>
               <td className="px-4 py-3 align-top font-medium">
                 {formatValor(tarifa.valor)}
@@ -147,7 +179,6 @@ export function TarifasList({ tarifas, servicios, contratos, }: TarifasListProps
                     servicioId={tarifa.servicioId}
                     contratoId={tarifa.contratoId}
                     categoriaAfiliacionId={tarifa.categoriaAfiliacionId}
-                    tipoCobro={tarifa.tipoCobro}
                     valor={tarifa.valor}
                     fechaInicioVigencia={tarifa.fechaInicioVigencia}
                     fechaFinVigencia={tarifa.fechaFinVigencia}

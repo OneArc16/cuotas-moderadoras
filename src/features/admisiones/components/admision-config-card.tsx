@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -16,18 +16,14 @@ type ContratoOption = {
     codigo: string;
     nombre: string;
   }>;
+  categoriaIds: number[];
+  servicioIds: number[];
 };
 
 type ServicioOption = {
   id: number;
   codigo: string | null;
   nombre: string;
-};
-
-type TarifaCombo = {
-  contratoId: number;
-  servicioId: number;
-  categoriaAfiliacionId: number | null;
 };
 
 type SelectedPatient = {
@@ -44,7 +40,6 @@ type AdmisionConfigCardProps = {
   selectedPatient: SelectedPatient;
   contratos: ContratoOption[];
   servicios: ServicioOption[];
-  tarifaCombos: TarifaCombo[];
   isOpen: boolean;
   onOpenChange: (nextOpen: boolean) => void;
   onAdmisionRegistered: () => void;
@@ -80,7 +75,7 @@ type TarifaStatus =
           nombre: string;
           tipo: string;
         };
-        servicio: {
+        servicio: null | {
           id: number;
           codigo: string | null;
           nombre: string;
@@ -226,7 +221,6 @@ export function AdmisionConfigCard({
   selectedPatient,
   contratos,
   servicios,
-  tarifaCombos,
   isOpen,
   onOpenChange,
   onAdmisionRegistered,
@@ -234,12 +228,8 @@ export function AdmisionConfigCard({
   const [contratoId, setContratoId] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
   const [servicioId, setServicioId] = useState("");
-  const [tarifaStatus, setTarifaStatus] = useState<TarifaStatus>({
-    kind: "idle",
-  });
-  const [admisionStatus, setAdmisionStatus] = useState<AdmisionStatus>({
-    kind: "idle",
-  });
+  const [tarifaStatus, setTarifaStatus] = useState<TarifaStatus>({ kind: "idle" });
+  const [admisionStatus, setAdmisionStatus] = useState<AdmisionStatus>({ kind: "idle" });
   const [descuentoInput, setDescuentoInput] = useState("");
   const [valorRecibido, setValorRecibido] = useState("");
   const [metodoPago, setMetodoPago] = useState("");
@@ -254,63 +244,43 @@ export function AdmisionConfigCard({
     [contratoId, contratos],
   );
 
-  const combosContrato = useMemo(() => {
-    if (!contratoId) return [];
-    return tarifaCombos.filter((item) => String(item.contratoId) === contratoId);
-  }, [contratoId, tarifaCombos]);
-
-  const servicioIdsDisponibles = useMemo(
-    () => new Set(combosContrato.map((item) => item.servicioId)),
-    [combosContrato],
+  const contratoEsParticular = contratoSeleccionado?.tipo === "PARTICULAR";
+  const servicioIdsParticulares = useMemo(
+    () => new Set(contratoSeleccionado?.servicioIds ?? []),
+    [contratoSeleccionado],
+  );
+  const categoriaIdsTarifadas = useMemo(
+    () => new Set(contratoSeleccionado?.categoriaIds ?? []),
+    [contratoSeleccionado],
   );
 
   const serviciosDisponibles = useMemo(() => {
-    if (!contratoId) return [];
-    return servicios.filter((item) => servicioIdsDisponibles.has(item.id));
-  }, [contratoId, servicios, servicioIdsDisponibles]);
+    if (!contratoSeleccionado) return [];
+    if (!contratoEsParticular) return servicios;
+
+    return servicios.filter((item) => servicioIdsParticulares.has(item.id));
+  }, [contratoEsParticular, contratoSeleccionado, servicioIdsParticulares, servicios]);
 
   const servicioSeleccionado = useMemo(
-    () =>
-      serviciosDisponibles.find((item) => String(item.id) === servicioId) ??
-      null,
+    () => serviciosDisponibles.find((item) => String(item.id) === servicioId) ?? null,
     [servicioId, serviciosDisponibles],
   );
 
-  const combosContratoServicio = useMemo(() => {
-    if (!contratoId || !servicioId) return [];
-    return tarifaCombos.filter(
-      (item) =>
-        String(item.contratoId) === contratoId &&
-        String(item.servicioId) === servicioId,
-    );
-  }, [contratoId, servicioId, tarifaCombos]);
-
-  const categoriaIdsDisponibles = useMemo(() => {
-    return new Set(
-      combosContratoServicio
-        .map((item) => item.categoriaAfiliacionId)
-        .filter((value): value is number => value !== null),
-    );
-  }, [combosContratoServicio]);
-
   const categoriasDisponibles = useMemo(() => {
-    if (!contratoSeleccionado || !servicioSeleccionado) return [];
+    if (!contratoSeleccionado || contratoEsParticular) return [];
+
     return contratoSeleccionado.categorias.filter((item) =>
-      categoriaIdsDisponibles.has(item.id),
+      categoriaIdsTarifadas.has(item.id),
     );
-  }, [contratoSeleccionado, servicioSeleccionado, categoriaIdsDisponibles]);
+  }, [categoriaIdsTarifadas, contratoEsParticular, contratoSeleccionado]);
 
   const categoriaSeleccionada = useMemo(
-    () =>
-      categoriasDisponibles.find((item) => String(item.id) === categoriaId) ??
-      null,
+    () => categoriasDisponibles.find((item) => String(item.id) === categoriaId) ?? null,
     [categoriaId, categoriasDisponibles],
   );
 
-  const contratoEsParticular = contratoSeleccionado?.tipo === "PARTICULAR";
-  const requiereCategoria = categoriasDisponibles.length > 0;
+  const requiereCategoria = Boolean(contratoSeleccionado && !contratoEsParticular);
   const isBusy = isTarifaPending || isRegisterPending;
-
   const canConsultarTarifa =
     canStartAdmision &&
     Boolean(selectedPatient) &&
@@ -332,7 +302,6 @@ export function AdmisionConfigCard({
   );
 
   const descuentoPreview = parseDescuentoInput(descuentoInput);
-
   const totalPagar = Math.max(valorBase - descuentoAplicado, 0);
   const recibido = parseMoneyInput(valorRecibido);
   const vuelto = Math.max(recibido - totalPagar, 0);
@@ -370,7 +339,6 @@ export function AdmisionConfigCard({
 
   function handleServicioChange(value: string) {
     setServicioId(value);
-    setCategoriaId("");
     resetTarifaState();
   }
 
@@ -425,10 +393,7 @@ export function AdmisionConfigCard({
         return;
       }
 
-      setTarifaStatus({
-        kind: "found",
-        tarifa: result.tarifa,
-      });
+      setTarifaStatus({ kind: "found", tarifa: result.tarifa });
       setAdmisionStatus({ kind: "idle" });
       resetPaymentFields();
     });
@@ -476,50 +441,35 @@ export function AdmisionConfigCard({
   }
 
   const contratoError =
-    tarifaStatus.kind === "error"
-      ? tarifaStatus.fieldErrors?.contratoId?.[0]
-      : undefined;
-
+    tarifaStatus.kind === "error" ? tarifaStatus.fieldErrors?.contratoId?.[0] : undefined;
   const servicioError =
-    tarifaStatus.kind === "error"
-      ? tarifaStatus.fieldErrors?.servicioId?.[0]
-      : undefined;
-
+    tarifaStatus.kind === "error" ? tarifaStatus.fieldErrors?.servicioId?.[0] : undefined;
   const categoriaError =
     tarifaStatus.kind === "error"
       ? tarifaStatus.fieldErrors?.categoriaAfiliacionId?.[0]
       : undefined;
-
   const admisionPacienteError =
-    admisionStatus.kind === "error"
-      ? admisionStatus.fieldErrors?.pacienteId?.[0]
-      : undefined;
-
+    admisionStatus.kind === "error" ? admisionStatus.fieldErrors?.pacienteId?.[0] : undefined;
   const admisionDescuentoError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.descuentoInput?.[0]
       : undefined;
-
   const admisionValorRecibidoError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.valorRecibido?.[0]
       : undefined;
-
   const admisionMetodoPagoError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.metodoPago?.[0]
       : undefined;
-
   const admisionReferenciaPagoError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.referenciaPago?.[0]
       : undefined;
-
   const admisionRazonDescuentoError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.razonDescuento?.[0]
       : undefined;
-
   const admisionObservacionError =
     admisionStatus.kind === "error"
       ? admisionStatus.fieldErrors?.observacion?.[0]
@@ -538,8 +488,9 @@ export function AdmisionConfigCard({
             Configuración de admisión
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Selecciona contrato, servicio y categoría válidos para resolver el
-            cobro y registrar la admisión.
+            Selecciona contrato y servicio. Si el contrato usa cuota
+            moderadora, el valor se resuelve por la categoría elegida y el
+            servicio queda registrado como la atención realizada.
           </p>
         </div>
 
@@ -565,8 +516,7 @@ export function AdmisionConfigCard({
       {isOpen ? (
         <div className="border-t px-6 pb-6 pt-6">
           <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-3xl border bg-muted/30 p-4">
-              {selectedPatient ? (
+            <div className="rounded-3xl border bg-muted/30 p-4">              {selectedPatient ? (
                 <div className="mb-4 rounded-2xl border bg-background p-4">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     Paciente seleccionado
@@ -575,18 +525,14 @@ export function AdmisionConfigCard({
                     {selectedPatient.nombreCompleto}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {selectedPatient.tipoDocumento} ·{" "}
-                    {selectedPatient.numeroDocumento}
+                    {selectedPatient.tipoDocumento} · {selectedPatient.numeroDocumento}
                   </p>
                 </div>
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
-                  <label
-                    htmlFor="admision-contrato"
-                    className="text-sm font-medium text-foreground"
-                  >
+                  <label htmlFor="admision-contrato" className="text-sm font-medium text-foreground">
                     Contrato
                   </label>
                   <select
@@ -609,10 +555,7 @@ export function AdmisionConfigCard({
                 </div>
 
                 <div className="space-y-2">
-                  <label
-                    htmlFor="admision-servicio"
-                    className="text-sm font-medium text-foreground"
-                  >
+                  <label htmlFor="admision-servicio" className="text-sm font-medium text-foreground">
                     Servicio
                   </label>
                   <select
@@ -623,11 +566,13 @@ export function AdmisionConfigCard({
                     className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="">
-                      {contratoSeleccionado
-                        ? serviciosDisponibles.length > 0
+                      {!contratoSeleccionado
+                        ? "Primero selecciona contrato"
+                        : serviciosDisponibles.length > 0
                           ? "Selecciona un servicio"
-                          : "No hay servicios activos para este contrato"
-                        : "Primero selecciona contrato"}
+                          : contratoEsParticular
+                            ? "No hay servicios particulares activos para este contrato"
+                            : "No hay servicios activos disponibles"}
                     </option>
                     {serviciosDisponibles.map((servicio) => (
                       <option key={servicio.id} value={servicio.id}>
@@ -642,10 +587,7 @@ export function AdmisionConfigCard({
                 </div>
 
                 <div className="space-y-2">
-                  <label
-                    htmlFor="admision-categoria"
-                    className="text-sm font-medium text-foreground"
-                  >
+                  <label htmlFor="admision-categoria" className="text-sm font-medium text-foreground">
                     Categoría de afiliación
                   </label>
                   <select
@@ -655,7 +597,6 @@ export function AdmisionConfigCard({
                     disabled={
                       !canStartAdmision ||
                       !contratoSeleccionado ||
-                      !servicioSeleccionado ||
                       !requiereCategoria ||
                       isBusy
                     }
@@ -664,11 +605,11 @@ export function AdmisionConfigCard({
                     <option value="">
                       {!contratoSeleccionado
                         ? "Primero selecciona contrato"
-                        : !servicioSeleccionado
-                          ? "Primero selecciona servicio"
-                          : requiereCategoria
+                        : !requiereCategoria
+                          ? "No aplica para contrato particular"
+                          : categoriasDisponibles.length > 0
                             ? "Selecciona una categoría"
-                            : "No aplica para esta combinación"}
+                            : "No hay categorías tarifadas para este contrato"}
                     </option>
                     {categoriasDisponibles.map((categoria) => (
                       <option key={categoria.id} value={categoria.id}>
@@ -709,26 +650,20 @@ export function AdmisionConfigCard({
                       Cálculo del cobro
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      El descuento solo se habilita cuando el contrato es
-                      PARTICULAR.
+                      El descuento solo se habilita cuando el contrato es PARTICULAR.
                     </p>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label
-                        htmlFor="descuento-input"
-                        className="text-sm font-medium text-foreground"
-                      >
+                      <label htmlFor="descuento-input" className="text-sm font-medium text-foreground">
                         Descuento
                       </label>
                       <input
                         id="descuento-input"
                         type="text"
                         value={descuentoInput}
-                        onChange={(e) =>
-                          setDescuentoInput(e.target.value.toUpperCase())
-                        }
+                        onChange={(e) => setDescuentoInput(e.target.value.toUpperCase())}
                         disabled={!descuentoPermitido || isRegisterPending}
                         placeholder={
                           descuentoPermitido
@@ -745,17 +680,12 @@ export function AdmisionConfigCard({
                           : "Este contrato no permite descuento."}
                       </p>
                       {admisionDescuentoError ? (
-                        <p className="text-sm text-destructive">
-                          {admisionDescuentoError}
-                        </p>
+                        <p className="text-sm text-destructive">{admisionDescuentoError}</p>
                       ) : null}
                     </div>
 
                     <div className="space-y-2">
-                      <label
-                        htmlFor="valor-recibido"
-                        className="text-sm font-medium text-foreground"
-                      >
+                      <label htmlFor="valor-recibido" className="text-sm font-medium text-foreground">
                         Valor recibido
                       </label>
                       <input
@@ -763,9 +693,7 @@ export function AdmisionConfigCard({
                         type="text"
                         inputMode="numeric"
                         value={valorRecibido}
-                        onChange={(e) =>
-                          setValorRecibido(sanitizeMoneyInput(e.target.value))
-                        }
+                        onChange={(e) => setValorRecibido(sanitizeMoneyInput(e.target.value))}
                         disabled={isRegisterPending}
                         placeholder="Ej. 20000"
                         className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none"
@@ -774,17 +702,12 @@ export function AdmisionConfigCard({
                         Registra el valor entregado por el paciente.
                       </p>
                       {admisionValorRecibidoError ? (
-                        <p className="text-sm text-destructive">
-                          {admisionValorRecibidoError}
-                        </p>
+                        <p className="text-sm text-destructive">{admisionValorRecibidoError}</p>
                       ) : null}
                     </div>
 
                     <div className="space-y-2">
-                      <label
-                        htmlFor="metodo-pago"
-                        className="text-sm font-medium text-foreground"
-                      >
+                      <label htmlFor="metodo-pago" className="text-sm font-medium text-foreground">
                         Método de pago
                       </label>
                       <select
@@ -802,17 +725,11 @@ export function AdmisionConfigCard({
                         ))}
                       </select>
                       {admisionMetodoPagoError ? (
-                        <p className="text-sm text-destructive">
-                          {admisionMetodoPagoError}
-                        </p>
+                        <p className="text-sm text-destructive">{admisionMetodoPagoError}</p>
                       ) : null}
                     </div>
-
                     <div className="space-y-2">
-                      <label
-                        htmlFor="referencia-pago"
-                        className="text-sm font-medium text-foreground"
-                      >
+                      <label htmlFor="referencia-pago" className="text-sm font-medium text-foreground">
                         Referencia de pago
                       </label>
                       <input
@@ -828,17 +745,12 @@ export function AdmisionConfigCard({
                         Útil para Nequi, transferencia, tarjeta o comprobantes.
                       </p>
                       {admisionReferenciaPagoError ? (
-                        <p className="text-sm text-destructive">
-                          {admisionReferenciaPagoError}
-                        </p>
+                        <p className="text-sm text-destructive">{admisionReferenciaPagoError}</p>
                       ) : null}
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <label
-                        htmlFor="razon-descuento"
-                        className="text-sm font-medium text-foreground"
-                      >
+                      <label htmlFor="razon-descuento" className="text-sm font-medium text-foreground">
                         Razón del descuento
                       </label>
                       <input
@@ -851,17 +763,12 @@ export function AdmisionConfigCard({
                         className="h-11 w-full rounded-2xl border bg-background px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       {admisionRazonDescuentoError ? (
-                        <p className="text-sm text-destructive">
-                          {admisionRazonDescuentoError}
-                        </p>
+                        <p className="text-sm text-destructive">{admisionRazonDescuentoError}</p>
                       ) : null}
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <label
-                        htmlFor="observacion"
-                        className="text-sm font-medium text-foreground"
-                      >
+                      <label htmlFor="observacion" className="text-sm font-medium text-foreground">
                         Observación
                       </label>
                       <textarea
@@ -874,57 +781,37 @@ export function AdmisionConfigCard({
                         className="w-full rounded-2xl border bg-background px-3 py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       {admisionObservacionError ? (
-                        <p className="text-sm text-destructive">
-                          {admisionObservacionError}
-                        </p>
+                        <p className="text-sm text-destructive">{admisionObservacionError}</p>
                       ) : null}
                     </div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-2xl bg-muted/40 p-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        Valor base
-                      </p>
-                      <p className="mt-2 text-base font-semibold">
-                        {formatMoney(valorBase)}
-                      </p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor base</p>
+                      <p className="mt-2 text-base font-semibold">{formatMoney(valorBase)}</p>
                     </div>
 
                     <div className="rounded-2xl bg-muted/40 p-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        Descuento
-                      </p>
-                      <p className="mt-2 text-base font-semibold">
-                        {formatMoney(descuentoAplicado)}
-                      </p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Descuento</p>
+                      <p className="mt-2 text-base font-semibold">{formatMoney(descuentoAplicado)}</p>
                     </div>
 
                     <div className="rounded-2xl bg-muted/40 p-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        Total a pagar
-                      </p>
-                      <p className="mt-2 text-base font-semibold">
-                        {formatMoney(totalPagar)}
-                      </p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total a pagar</p>
+                      <p className="mt-2 text-base font-semibold">{formatMoney(totalPagar)}</p>
                     </div>
 
                     <div className="rounded-2xl bg-muted/40 p-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        Valor recibido
-                      </p>
-                      <p className="mt-2 text-base font-semibold">
-                        {formatMoney(recibido)}
-                      </p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Valor recibido</p>
+                      <p className="mt-2 text-base font-semibold">{formatMoney(recibido)}</p>
                     </div>
                   </div>
 
                   <div className="rounded-2xl border border-dashed bg-muted/20 p-4">
                     {recibido === 0 ? (
                       <div>
-                        <p className="text-sm font-medium text-foreground">
-                          Esperando pago
-                        </p>
+                        <p className="text-sm font-medium text-foreground">Esperando pago</p>
                         <p className="mt-1 text-sm text-muted-foreground">
                           Ingresa el valor recibido para calcular si hay vuelto.
                         </p>
@@ -957,16 +844,12 @@ export function AdmisionConfigCard({
                       disabled={!canRegistrarAdmision}
                       className="inline-flex h-11 items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isRegisterPending
-                        ? "Registrando..."
-                        : "Registrar admisión"}
+                      {isRegisterPending ? "Registrando..." : "Registrar admisión"}
                     </button>
                   </div>
 
                   {admisionPacienteError ? (
-                    <p className="text-sm text-destructive">
-                      {admisionPacienteError}
-                    </p>
+                    <p className="text-sm text-destructive">{admisionPacienteError}</p>
                   ) : null}
 
                   {admisionStatus.kind === "error" ? (
@@ -984,13 +867,10 @@ export function AdmisionConfigCard({
 
               {!canStartAdmision ? (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Este paso se habilita cuando el paciente ya quedó listo en el
-                  paso 1.
+                  Este paso se habilita cuando el paciente ya quedó listo en el paso 1.
                 </p>
               ) : tarifaStatus.kind === "error" ? (
-                <p className="mt-4 text-sm text-destructive">
-                  {tarifaStatus.message}
-                </p>
+                <p className="mt-4 text-sm text-destructive">{tarifaStatus.message}</p>
               ) : tarifaStatus.kind === "not-found" ? (
                 <p className="mt-4 text-sm text-amber-700 dark:text-amber-400">
                   No se encontró una tarifa vigente para la selección actual.
@@ -1001,8 +881,7 @@ export function AdmisionConfigCard({
                 </p>
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Ahora solo verás servicios y categorías válidos para el
-                  contrato seleccionado.
+                  Para contratos particulares verás solo servicios con tarifa activa. Para los demás contratos, el valor se resolverá por categoría y el servicio quedará registrado en la admisión.
                 </p>
               )}
             </div>
@@ -1042,9 +921,7 @@ export function AdmisionConfigCard({
                   : null
               }
               tipoCobro={
-                tarifaStatus.kind === "found"
-                  ? tarifaStatus.tarifa.tipoCobro
-                  : null
+                tarifaStatus.kind === "found" ? tarifaStatus.tarifa.tipoCobro : null
               }
               metodoPago={metodoPago || null}
               referenciaPago={referenciaPago || null}
@@ -1060,6 +937,3 @@ export function AdmisionConfigCard({
     </section>
   );
 }
-
-
-

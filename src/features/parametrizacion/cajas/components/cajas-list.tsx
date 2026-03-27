@@ -3,31 +3,22 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
-import { toggleCajaStatus } from "@/features/parametrizacion/cajas/lib/toggle-caja-status";
 import { EditCajaDialog } from "@/features/parametrizacion/cajas/components/edit-caja-dialog";
+import { toggleCajaStatus } from "@/features/parametrizacion/cajas/lib/toggle-caja-status";
 
 type CajaItem = {
   id: number;
   nombre: string;
   estado: string;
-  piso: {
-    id: number;
-    nombre: string;
-  };
-};
-
-type PisoOption = {
-  id: number;
-  nombre: string;
 };
 
 type CajasListProps = {
   cajas: CajaItem[];
-  pisos: CajaItem[];
 };
 
-export function CajasList({ cajas, pisos }: CajasListProps) {
+export function CajasList({ cajas }: CajasListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -41,7 +32,7 @@ export function CajasList({ cajas, pisos }: CajasListProps) {
         toast.error(
           error instanceof Error
             ? error.message
-            : "No se pudo actualizar el estado de la caja"
+            : "No se pudo actualizar el estado de la caja",
         );
       }
     });
@@ -59,10 +50,9 @@ export function CajasList({ cajas, pisos }: CajasListProps) {
 
   return (
     <div className="rounded-xl border">
-      <div className="grid grid-cols-5 border-b bg-muted/40 px-4 py-3 text-sm font-medium">
+      <div className="grid grid-cols-4 border-b bg-muted/40 px-4 py-3 text-sm font-medium">
         <span>ID</span>
         <span>Nombre</span>
-        <span>Piso</span>
         <span>Estado</span>
         <span>Acciones</span>
       </div>
@@ -71,19 +61,13 @@ export function CajasList({ cajas, pisos }: CajasListProps) {
         {cajas.map((caja) => (
           <div
             key={caja.id}
-            className="grid grid-cols-5 items-center px-4 py-3 text-sm"
+            className="grid grid-cols-4 items-center px-4 py-3 text-sm"
           >
             <span>{caja.id}</span>
             <span>{caja.nombre}</span>
-            <span>{caja.piso.nombre}</span>
             <span>{caja.estado}</span>
             <div className="flex items-center gap-2">
-              <EditCajaDialog
-                id={caja.id}
-                nombre={caja.nombre}
-                pisoId={caja.piso.id}
-                pisos={pisos}
-              />
+              <EditCajaDialog id={caja.id} nombre={caja.nombre} />
 
               <Button
                 type="button"

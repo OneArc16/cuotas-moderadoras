@@ -66,7 +66,6 @@ export default async function MovimientosPage({
     metodo?: string;
     q?: string;
     cajaId?: string;
-    moduloId?: string;
   }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
@@ -76,7 +75,6 @@ export default async function MovimientosPage({
   const metodoParam = resolvedSearchParams?.metodo?.trim() ?? "";
   const q = resolvedSearchParams?.q?.trim() ?? "";
   const cajaIdParam = resolvedSearchParams?.cajaId?.trim() ?? "";
-  const moduloIdParam = resolvedSearchParams?.moduloId?.trim() ?? "";
 
   const metodoPago = METODOS_PAGO.includes(
     metodoParam as (typeof METODOS_PAGO)[number],
@@ -85,36 +83,22 @@ export default async function MovimientosPage({
     : "";
 
   const cajaId = /^\d+$/.test(cajaIdParam) ? Number(cajaIdParam) : null;
-  const moduloId = /^\d+$/.test(moduloIdParam) ? Number(moduloIdParam) : null;
-
   const createdAt = buildDateRange(desde, hasta);
 
-  const [cajas, modulos] = await Promise.all([
-    prisma.caja.findMany({
-      orderBy: {
-        nombre: "asc",
-      },
-      select: {
-        id: true,
-        nombre: true,
-      },
-    }),
-    prisma.moduloAtencion.findMany({
-      orderBy: {
-        nombre: "asc",
-      },
-      select: {
-        id: true,
-        nombre: true,
-      },
-    }),
-  ]);
+  const cajas = await prisma.caja.findMany({
+    orderBy: {
+      nombre: "asc",
+    },
+    select: {
+      id: true,
+      nombre: true,
+    },
+  });
 
   const where = {
     ...(createdAt ? { createdAt } : {}),
     ...(metodoPago ? { metodoPago } : {}),
     ...(cajaId ? { cajaId } : {}),
-    ...(moduloId ? { moduloAtencionId: moduloId } : {}),
     ...(q
       ? {
           OR: [
@@ -173,16 +157,6 @@ export default async function MovimientosPage({
               nombre: true,
             },
           },
-          piso: {
-            select: {
-              nombre: true,
-            },
-          },
-          moduloAtencion: {
-            select: {
-              nombre: true,
-            },
-          },
           usuario: {
             select: {
               primerNombre: true,
@@ -199,9 +173,7 @@ export default async function MovimientosPage({
           },
         },
       }),
-      prisma.movimiento.count({
-        where,
-      }),
+      prisma.movimiento.count({ where }),
       prisma.movimiento.aggregate({
         where: {
           ...where,
@@ -226,24 +198,17 @@ export default async function MovimientosPage({
   const totalSalidas = Number(salidasAgg._sum.valor ?? 0);
   const recaudoNeto = totalEntradas - totalSalidas;
 
-  const filtrosActivos = Boolean(
-    desde || hasta || metodoPago || q || cajaId || moduloId,
-  );
+  const filtrosActivos = Boolean(desde || hasta || metodoPago || q || cajaId);
 
   return (
     <main className="space-y-6">
       <section className="rounded-[28px] border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">
-              Operación
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Movimientos
-            </h1>
+            <p className="text-sm font-medium text-muted-foreground">Operación</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Movimientos</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Consulta los ingresos y salidas generados por la operación diaria
-              de caja y admisiones.
+              Consulta los ingresos y salidas generados por la operación diaria de caja y admisiones.
             </p>
           </div>
 
@@ -274,23 +239,17 @@ export default async function MovimientosPage({
 
         <div className="rounded-[24px] border bg-card p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Entradas</p>
-          <p className="mt-2 text-3xl font-semibold">
-            {formatCurrency(totalEntradas)}
-          </p>
+          <p className="mt-2 text-3xl font-semibold">{formatCurrency(totalEntradas)}</p>
         </div>
 
         <div className="rounded-[24px] border bg-card p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Salidas</p>
-          <p className="mt-2 text-3xl font-semibold">
-            {formatCurrency(totalSalidas)}
-          </p>
+          <p className="mt-2 text-3xl font-semibold">{formatCurrency(totalSalidas)}</p>
         </div>
 
         <div className="rounded-[24px] border bg-card p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Recaudo neto</p>
-          <p className="mt-2 text-3xl font-semibold">
-            {formatCurrency(recaudoNeto)}
-          </p>
+          <p className="mt-2 text-3xl font-semibold">{formatCurrency(recaudoNeto)}</p>
         </div>
       </section>
 
@@ -299,58 +258,38 @@ export default async function MovimientosPage({
           <div>
             <h2 className="text-lg font-semibold">Listado de movimientos</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Filtra por fechas, método, caja, módulo y búsqueda por referencia
-              o paciente.
+              Filtra por fechas, método, caja y búsqueda por referencia o paciente.
             </p>
 
             {filtrosActivos ? (
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {desde ? (
                   <span className="rounded-full bg-muted px-3 py-1">
-                    Desde:{" "}
-                    <span className="font-medium text-foreground">{desde}</span>
+                    Desde: <span className="font-medium text-foreground">{desde}</span>
                   </span>
                 ) : null}
 
                 {hasta ? (
                   <span className="rounded-full bg-muted px-3 py-1">
-                    Hasta:{" "}
-                    <span className="font-medium text-foreground">{hasta}</span>
+                    Hasta: <span className="font-medium text-foreground">{hasta}</span>
                   </span>
                 ) : null}
 
                 {metodoPago ? (
                   <span className="rounded-full bg-muted px-3 py-1">
-                    Método:{" "}
-                    <span className="font-medium text-foreground">
-                      {metodoPago}
-                    </span>
+                    Método: <span className="font-medium text-foreground">{metodoPago}</span>
                   </span>
                 ) : null}
 
                 {cajaId ? (
                   <span className="rounded-full bg-muted px-3 py-1">
-                    Caja:{" "}
-                    <span className="font-medium text-foreground">
-                      {cajas.find((caja) => caja.id === cajaId)?.nombre ?? cajaId}
-                    </span>
-                  </span>
-                ) : null}
-
-                {moduloId ? (
-                  <span className="rounded-full bg-muted px-3 py-1">
-                    Módulo:{" "}
-                    <span className="font-medium text-foreground">
-                      {modulos.find((modulo) => modulo.id === moduloId)?.nombre ??
-                        moduloId}
-                    </span>
+                    Caja: <span className="font-medium text-foreground">{cajas.find((caja) => caja.id === cajaId)?.nombre ?? cajaId}</span>
                   </span>
                 ) : null}
 
                 {q ? (
                   <span className="rounded-full bg-muted px-3 py-1">
-                    Búsqueda:{" "}
-                    <span className="font-medium text-foreground">{q}</span>
+                    Búsqueda: <span className="font-medium text-foreground">{q}</span>
                   </span>
                 ) : null}
               </div>
@@ -364,9 +303,7 @@ export default async function MovimientosPage({
               metodo={metodoPago}
               q={q}
               cajaId={cajaId ? String(cajaId) : ""}
-              moduloId={moduloId ? String(moduloId) : ""}
               cajas={cajas}
-              modulos={modulos}
             />
           </div>
         </div>
@@ -375,9 +312,9 @@ export default async function MovimientosPage({
           <div className="grid grid-cols-12 bg-secondary/70 px-5 py-4 text-xs font-medium uppercase tracking-[0.14em] text-secondary-foreground">
             <div className="col-span-2">Fecha</div>
             <div className="col-span-2">Caja</div>
-            <div className="col-span-2">Módulo</div>
+            <div className="col-span-3">Paciente</div>
             <div className="col-span-2">Método</div>
-            <div className="col-span-2">Naturaleza</div>
+            <div className="col-span-1">Naturaleza</div>
             <div className="col-span-2 text-right">Valor</div>
           </div>
 
@@ -393,42 +330,34 @@ export default async function MovimientosPage({
                   className="grid grid-cols-12 items-center gap-3 px-5 py-5 text-sm"
                 >
                   <div className="col-span-2 min-w-0">
-                    <p className="font-medium">
-                      {formatDateTime(movimiento.createdAt)}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      #{movimiento.id}
-                    </p>
+                    <p className="font-medium">{formatDateTime(movimiento.createdAt)}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">#{movimiento.id}</p>
                   </div>
 
                   <div className="col-span-2 min-w-0">
-                    <p className="truncate font-medium">
-                      {movimiento.caja.nombre}
-                    </p>
+                    <p className="truncate font-medium">{movimiento.caja.nombre}</p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {movimiento.piso.nombre}
+                      {movimiento.admision.contratoNombreSnapshot}
                     </p>
                   </div>
 
-                  <div className="col-span-2 min-w-0">
+                  <div className="col-span-3 min-w-0">
                     <p className="truncate font-medium">
-                      {movimiento.moduloAtencion.nombre}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
                       {movimiento.admision.pacienteNombreSnapshot}
                     </p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {movimiento.admision.servicioNombreSnapshot}
+                    </p>
                   </div>
 
                   <div className="col-span-2 min-w-0">
-                    <p className="truncate font-medium">
-                      {movimiento.metodoPago}
-                    </p>
+                    <p className="truncate font-medium">{movimiento.metodoPago}</p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
                       {movimiento.referenciaPago || "Sin referencia"}
                     </p>
                   </div>
 
-                  <div className="col-span-2 min-w-0">
+                  <div className="col-span-1 min-w-0">
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getNaturalezaClasses(
                         movimiento.naturaleza,
@@ -436,9 +365,6 @@ export default async function MovimientosPage({
                     >
                       {movimiento.naturaleza}
                     </span>
-                    <p className="mt-2 truncate text-xs text-muted-foreground">
-                      {movimiento.tipoMovimiento}
-                    </p>
                   </div>
 
                   <div className="col-span-2 text-right">
@@ -446,8 +372,7 @@ export default async function MovimientosPage({
                       {formatCurrency(Number(movimiento.valor))}
                     </p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {movimiento.usuario.primerNombre}{" "}
-                      {movimiento.usuario.primerApellido}
+                      {movimiento.usuario.primerNombre} {movimiento.usuario.primerApellido}
                     </p>
                   </div>
                 </div>

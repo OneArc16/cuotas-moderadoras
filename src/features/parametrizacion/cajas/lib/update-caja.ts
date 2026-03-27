@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 type UpdateCajaInput = {
   id: number;
   nombre: string;
-  pisoId: number;
 };
 
 export async function updateCaja(input: UpdateCajaInput) {
@@ -20,7 +19,6 @@ export async function updateCaja(input: UpdateCajaInput) {
     where: { id: input.id },
     data: {
       nombre,
-      pisoId: input.pisoId,
     },
   });
 

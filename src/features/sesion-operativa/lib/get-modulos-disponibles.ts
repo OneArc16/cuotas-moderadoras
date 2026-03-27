@@ -5,7 +5,9 @@ export async function getModulosDisponibles() {
     where: {
       estado: "ACTIVO",
       piso: {
-        estado: "ACTIVO",
+        is: {
+          estado: "ACTIVO",
+        },
       },
     },
     include: {
@@ -27,15 +29,6 @@ export async function getModulosDisponibles() {
         },
       },
     },
-    orderBy: [
-      {
-        piso: {
-          nombre: "asc",
-        },
-      },
-      {
-        nombre: "asc",
-      },
-    ],
+    orderBy: [{ nombre: "asc" }],
   });
 }

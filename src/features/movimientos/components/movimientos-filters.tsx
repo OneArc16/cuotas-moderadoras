@@ -26,9 +26,7 @@ type MovimientosFiltersProps = {
   metodo: string;
   q: string;
   cajaId: string;
-  moduloId: string;
   cajas: OptionItem[];
-  modulos: OptionItem[];
 };
 
 function FilterDateInput({
@@ -57,9 +55,7 @@ export function MovimientosFilters({
   metodo,
   q,
   cajaId,
-  moduloId,
   cajas,
-  modulos,
 }: MovimientosFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -89,15 +85,6 @@ export function MovimientosFilters({
     [cajas],
   );
 
-  const moduloOptions = useMemo(
-    () =>
-      modulos.map((modulo) => ({
-        value: String(modulo.id),
-        label: modulo.nombre,
-      })),
-    [modulos],
-  );
-
   const updateParams = useCallback(
     (next: {
       desde?: string;
@@ -105,7 +92,6 @@ export function MovimientosFilters({
       metodo?: string;
       q?: string;
       cajaId?: string;
-      moduloId?: string;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
 
@@ -124,7 +110,6 @@ export function MovimientosFilters({
       setOrDelete("metodo", next.metodo);
       setOrDelete("q", next.q);
       setOrDelete("cajaId", next.cajaId);
-      setOrDelete("moduloId", next.moduloId);
 
       const queryString = params.toString();
       router.replace(queryString ? `${pathname}?${queryString}` : pathname);
@@ -145,25 +130,15 @@ export function MovimientosFilters({
         metodo,
         q: searchValue,
         cajaId,
-        moduloId,
       });
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [
-    searchValue,
-    q,
-    desde,
-    hasta,
-    metodo,
-    cajaId,
-    moduloId,
-    updateParams,
-  ]);
+  }, [searchValue, q, desde, hasta, metodo, cajaId, updateParams]);
 
   return (
     <div className="rounded-[24px] border bg-muted/20 p-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         <FilterDateInput
           value={desde}
           onChange={(value) =>
@@ -173,7 +148,6 @@ export function MovimientosFilters({
               metodo,
               q: searchValue,
               cajaId,
-              moduloId,
             })
           }
         />
@@ -187,7 +161,6 @@ export function MovimientosFilters({
               metodo,
               q: searchValue,
               cajaId,
-              moduloId,
             })
           }
         />
@@ -201,7 +174,6 @@ export function MovimientosFilters({
               metodo: value,
               q: searchValue,
               cajaId,
-              moduloId,
             })
           }
           options={metodoOptions}
@@ -219,7 +191,6 @@ export function MovimientosFilters({
               metodo,
               q: searchValue,
               cajaId: value,
-              moduloId,
             })
           }
           options={cajaOptions}
@@ -228,25 +199,7 @@ export function MovimientosFilters({
           emptyText="No hay cajas"
         />
 
-        <FilterCombobox
-          value={moduloId}
-          onChange={(value) =>
-            updateParams({
-              desde,
-              hasta,
-              metodo,
-              q: searchValue,
-              cajaId,
-              moduloId: value,
-            })
-          }
-          options={moduloOptions}
-          placeholder="Todos los módulos"
-          searchPlaceholder="Buscar módulo..."
-          emptyText="No hay módulos"
-        />
-
-        <div className="flex flex-col gap-3 sm:flex-row xl:col-span-3 2xl:col-span-1">
+        <div className="flex flex-col gap-3 sm:flex-row 2xl:col-span-1">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input

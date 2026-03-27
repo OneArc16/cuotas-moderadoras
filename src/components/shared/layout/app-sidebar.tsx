@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -51,22 +51,10 @@ const OPERACION_ITEMS: NavItem[] = [
 
 const PARAMETRIZACION_ITEMS: NavItem[] = [
   {
-    href: "/parametrizacion/pisos",
-    label: "Pisos",
-    shortLabel: "PI",
-    description: "Estructura física",
-  },
-  {
     href: "/parametrizacion/cajas",
     label: "Cajas",
     shortLabel: "CA",
-    description: "Cajas por piso",
-  },
-  {
-    href: "/parametrizacion/modulos-atencion",
-    label: "Módulos",
-    shortLabel: "MO",
-    description: "Puntos de atención",
+    description: "Puntos de recaudo",
   },
   {
     href: "/parametrizacion/contratos",
@@ -122,7 +110,7 @@ function NavSection({
 }) {
   return (
     <div className="space-y-2">
-      <p className="px-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="px-2 text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground">
         {title}
       </p>
 
@@ -134,17 +122,17 @@ function NavSection({
             <Link
               key={item.href}
               href={item.href}
-              className={`group flex items-center gap-3 rounded-2xl px-3 py-3 transition ${
+              className={`group flex items-center gap-3 rounded-[20px] border px-3 py-2.5 transition-colors ${
                 active
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-foreground hover:bg-muted/70"
+                  ? "border-transparent bg-foreground text-background shadow-[0_16px_30px_-24px_color-mix(in_oklab,var(--foreground)_90%,transparent)]"
+                  : "border-transparent text-foreground hover:bg-secondary/70"
               }`}
             >
               <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xs font-semibold ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] text-[0.72rem] font-semibold ${
                   active
                     ? "bg-background/15 text-background"
-                    : "bg-muted text-foreground"
+                    : "border border-border/60 bg-background/90 text-foreground"
                 }`}
               >
                 {item.shortLabel}
@@ -159,7 +147,7 @@ function NavSection({
                   {item.label}
                 </p>
                 <p
-                  className={`truncate text-xs ${
+                  className={`truncate text-[0.82rem] ${
                     active ? "text-background/80" : "text-muted-foreground"
                   }`}
                 >
@@ -196,45 +184,41 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
   }
 
   return (
-    <aside className="w-full lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-[290px]">
-      <div className="flex h-full flex-col rounded-[32px] border bg-background p-4 shadow-sm">
-        <div className="rounded-[28px] border bg-muted/30 p-4">
+    <aside className="w-full xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:w-[272px] 2xl:w-[288px]">
+      <div className="flex h-full flex-col rounded-[28px] border border-border/80 bg-card/95 p-3.5 shadow-[0_18px_40px_-28px_color-mix(in_oklab,var(--foreground)_35%,transparent)] backdrop-blur-sm">
+        <div className="rounded-[24px] border border-border/70 bg-secondary/40 p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground text-sm font-semibold text-background">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-foreground text-sm font-semibold text-background">
               CM
             </div>
 
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
+              <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">
                 Cuotas Moderadoras
               </p>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-[0.82rem] text-muted-foreground">
                 Operación diaria
               </p>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl bg-background p-3">
-            <p className="truncate text-sm font-medium">{nombreCompleto}</p>
-            <p className="truncate text-xs text-muted-foreground">
+          <div className="mt-4 rounded-[20px] border border-border/60 bg-background/90 p-3">
+            <p className="truncate text-sm font-medium text-foreground">
+              {nombreCompleto}
+            </p>
+            <p className="truncate text-[0.82rem] text-muted-foreground">
               @{username}
             </p>
           </div>
         </div>
 
-        <div className="mt-4 flex-1 space-y-5 overflow-y-auto pr-1">
-          <NavSection
-            title="Operación"
-            items={OPERACION_ITEMS}
-            pathname={pathname}
-          />
-
+        <div className="mt-4 flex-1 space-y-4 overflow-y-auto pr-1">
+          <NavSection title="Operación" items={OPERACION_ITEMS} pathname={pathname} />
           <NavSection
             title="Parametrización"
             items={PARAMETRIZACION_ITEMS}
             pathname={pathname}
           />
-
           <NavSection
             title="Administración"
             items={ADMINISTRACION_ITEMS}
@@ -243,9 +227,9 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
         </div>
 
         <div className="mt-4 space-y-3">
-          <div className="rounded-2xl border bg-muted/20 p-4">
-            <p className="text-sm font-medium">Flujo recomendado</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          <div className="rounded-[20px] border border-border/70 bg-secondary/35 p-4">
+            <p className="text-sm font-medium text-foreground">Flujo recomendado</p>
+            <p className="mt-1 text-[0.82rem] leading-5 text-muted-foreground">
               Dashboard, Caja, Admisiones y luego Movimientos.
             </p>
           </div>
@@ -254,7 +238,7 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
             type="button"
             onClick={handleSignOut}
             disabled={isSigningOut}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-border/70 bg-background/90 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSigningOut ? (
               <>
@@ -273,4 +257,3 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
     </aside>
   );
 }
-

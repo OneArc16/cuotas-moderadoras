@@ -21,13 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 type ReopenJornadaCajaDialogProps = {
   jornadaId: number;
   cajaNombre: string;
-  pisoNombre: string;
 };
 
 export function ReopenJornadaCajaDialog({
   jornadaId,
   cajaNombre,
-  pisoNombre,
 }: ReopenJornadaCajaDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -86,12 +84,8 @@ export function ReopenJornadaCajaDialog({
               Reabrir jornada de caja
             </DialogTitle>
             <DialogDescription className="text-sm leading-6">
-              Vas a reabrir la caja{" "}
-              <span className="font-medium text-foreground">{cajaNombre}</span>{" "}
-              del piso{" "}
-              <span className="font-medium text-foreground">{pisoNombre}</span>.
-              Registra el motivo de reapertura para dejar trazabilidad
-              operativa.
+              Vas a reabrir la caja <span className="font-medium text-foreground">{cajaNombre}</span>.
+              Registra el motivo de reapertura para dejar trazabilidad operativa.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -99,34 +93,22 @@ export function ReopenJornadaCajaDialog({
         <div className="space-y-6 p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border bg-muted/20 p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Caja
-              </p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Caja</p>
               <p className="mt-2 text-base font-semibold">{cajaNombre}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Jornada previamente cerrada.
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">Jornada previamente cerrada.</p>
             </div>
 
             <div className="rounded-2xl border bg-muted/20 p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Acción operativa
-              </p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Acción operativa</p>
               <p className="mt-2 text-base font-semibold">Reapertura controlada</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Úsala solo cuando debas continuar la operación de la misma
-                jornada.
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">Úsala solo cuando debas continuar la operación de la misma jornada.</p>
             </div>
           </div>
 
           <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-              Importante
-            </p>
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Importante</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Reabrir no crea una nueva jornada. Solo reactiva la jornada cerrada
-              para continuar operando sobre la misma caja.
+              Reabrir no crea una nueva jornada. Solo reactiva la jornada cerrada para continuar operando sobre la misma caja.
             </p>
           </div>
 
@@ -154,21 +136,10 @@ export function ReopenJornadaCajaDialog({
         </div>
 
         <DialogFooter className="border-t bg-muted/20 px-6 py-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleClose}
-            disabled={isPending}
-            className="rounded-2xl"
-          >
+          <Button type="button" variant="outline" onClick={handleClose} disabled={isPending} className="rounded-2xl">
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isPending || !motivoReapertura.trim()}
-            className="rounded-2xl"
-          >
+          <Button type="button" onClick={handleSubmit} disabled={isPending || !motivoReapertura.trim()} className="rounded-2xl">
             {isPending ? "Reabriendo..." : "Confirmar reapertura"}
           </Button>
         </DialogFooter>

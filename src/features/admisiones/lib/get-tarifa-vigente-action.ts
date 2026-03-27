@@ -3,7 +3,11 @@
 import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
-import { getTarifaVigente, type TarifaVigenteResult } from "@/features/admisiones/lib/get-tarifa-vigente";
+import { prisma } from "@/lib/prisma";
+import {
+  getTarifaVigente,
+  type TarifaVigenteResult,
+} from "@/features/admisiones/lib/get-tarifa-vigente";
 
 const getTarifaVigenteSchema = z.object({
   contratoId: z.coerce.number().int().positive("Contrato inválido."),
@@ -51,6 +55,37 @@ export async function getTarifaVigenteAction(
         contratoId: flattened.fieldErrors.contratoId,
         servicioId: flattened.fieldErrors.servicioId,
         categoriaAfiliacionId: flattened.fieldErrors.categoriaAfiliacionId,
+      },
+    };
+  }
+
+  const contrato = await prisma.contrato.findUnique({
+    where: { id: parsed.data.contratoId },
+    select: {
+      id: true,
+      tipo: true,
+      estado: true,
+    },
+  });
+
+  if (!contrato || contrato.estado !== "ACTIVO") {
+    return {
+      ok: false,
+      message: "El contrato seleccionado no está disponible.",
+      fieldErrors: {
+        contratoId: ["El contrato seleccionado no está disponible."],
+      },
+    };
+  }
+
+  if (contrato.tipo !== "PARTICULAR" && !parsed.data.categoriaAfiliacionId) {
+    return {
+      ok: false,
+      message: "Debes seleccionar una categoría para este contrato.",
+      fieldErrors: {
+        categoriaAfiliacionId: [
+          "Debes seleccionar una categoría para este contrato.",
+        ],
       },
     };
   }

@@ -6,16 +6,8 @@ import { getAdmisionPageContext } from "@/features/admisiones/lib/get-admision-p
 
 function getStatusTone(active: boolean) {
   return active
-    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-    : "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
-}
-
-function formatMoney(value: string) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number(value));
+    ? "bg-primary/10 text-primary dark:bg-primary/15"
+    : "bg-rose-100/90 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
 }
 
 export default async function AdmisionesPage() {
@@ -27,7 +19,7 @@ export default async function AdmisionesPage() {
 
   return (
     <main className="min-h-screen bg-transparent">
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <AppPageHeader
           eyebrow="Operación diaria · Admisiones"
           title="Recepción y cobro de pacientes"
@@ -35,14 +27,14 @@ export default async function AdmisionesPage() {
           statusChips={
             <>
               <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusTone(
+                className={`rounded-full px-3 py-1.5 text-[0.72rem] font-semibold tracking-[0.04em] ${getStatusTone(
                   hasSesionOperativa,
                 )}`}
               >
                 Sesión {hasSesionOperativa ? "activa" : "pendiente"}
               </span>
               <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusTone(
+                className={`rounded-full px-3 py-1.5 text-[0.72rem] font-semibold tracking-[0.04em] ${getStatusTone(
                   hasJornadaCajaActiva,
                 )}`}
               >
@@ -50,76 +42,20 @@ export default async function AdmisionesPage() {
               </span>
             </>
           }
-          aside={
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <div className="rounded-2xl border bg-background px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Usuario
-                </p>
-                <p className="mt-2 text-sm font-semibold">
-                  {context.usuario.nombreCompleto}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  @{context.usuario.username}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border bg-background px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Contexto operativo
-                </p>
-                <p className="mt-2 text-sm font-semibold">
-                  {context.sesionOperativa?.moduloAtencion.nombre ||
-                    "Sin módulo activo"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {context.sesionOperativa
-                    ? `${context.sesionOperativa.piso.nombre} · Caja ${context.sesionOperativa.caja.nombre}`
-                    : "Debes iniciar sesión operativa"}
-                </p>
-              </div>
-            </div>
-          }
-          stats={[
-            {
-              label: "Módulo operativo",
-              value: context.sesionOperativa?.moduloAtencion.codigo || "—",
-              helper: context.sesionOperativa?.moduloAtencion.nombre
-                ? `${context.sesionOperativa.moduloAtencion.nombre}`
-                : "Sin sesión operativa",
-            },
-            {
-              label: "Jornada de caja",
-              value: context.jornadaCaja?.estado || "Sin jornada",
-              helper: context.jornadaCaja
-                ? `Base ${formatMoney(context.jornadaCaja.baseInicial)}`
-                : "La caja debe estar abierta o reabierta",
-            },
-            {
-              label: "Contratos visibles",
-              value: String(context.contratos.length),
-              helper: "Solo contratos con tarifa activa",
-            },
-            {
-              label: "Servicios visibles",
-              value: String(context.servicios.length),
-              helper: "Solo servicios con tarifa activa",
-            },
-          ]}
         />
 
         {!hasSesionOperativa ? (
-          <section className="rounded-3xl border border-destructive/30 bg-destructive/5 p-5 shadow-sm">
+          <section className="rounded-[24px] border border-destructive/20 bg-destructive/5 p-5 shadow-[0_16px_36px_-30px_color-mix(in_oklab,var(--destructive)_35%,transparent)]">
             <h3 className="text-base font-semibold text-destructive">
-              Debes seleccionar un módulo antes de admitir pacientes
+              Debes seleccionar una caja antes de admitir pacientes
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Primero inicia una sesión operativa desde el dashboard principal.
             </p>
             <div className="mt-4">
               <Link
                 href="/"
-                className="inline-flex rounded-2xl border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+                className="inline-flex rounded-2xl border border-border/70 px-4 py-2 text-sm font-medium transition hover:bg-secondary/60"
               >
                 Ir al inicio
               </Link>
@@ -128,18 +64,18 @@ export default async function AdmisionesPage() {
         ) : null}
 
         {hasSesionOperativa && !hasJornadaCajaActiva ? (
-          <section className="rounded-3xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm">
+          <section className="rounded-[24px] border border-amber-500/20 bg-amber-500/5 p-5 shadow-[0_16px_36px_-30px_color-mix(in_oklab,oklch(0.75_0.14_85)_35%,transparent)]">
             <h3 className="text-base font-semibold text-amber-700 dark:text-amber-400">
               La sesión está activa, pero la caja no está lista
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Para continuar con admisiones, la caja del piso debe tener una
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Para continuar con admisiones, la caja actual debe tener una
               jornada abierta o reabierta.
             </p>
             <div className="mt-4">
               <Link
                 href="/caja"
-                className="inline-flex rounded-2xl border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+                className="inline-flex rounded-2xl border border-border/70 px-4 py-2 text-sm font-medium transition hover:bg-secondary/60"
               >
                 Ir a caja
               </Link>
@@ -151,7 +87,6 @@ export default async function AdmisionesPage() {
           canStartAdmision={canStartAdmision}
           contratos={context.contratos}
           servicios={context.servicios}
-          tarifaCombos={context.tarifaCombos}
         />
       </div>
     </main>

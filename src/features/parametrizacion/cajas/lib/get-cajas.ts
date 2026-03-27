@@ -2,11 +2,13 @@ import { prisma } from "@/lib/prisma";
 
 export async function getCajas() {
   return prisma.caja.findMany({
-    include: {
-      piso: true,
+    select: {
+      id: true,
+      nombre: true,
+      estado: true,
     },
     orderBy: {
-      id: "asc",
+      nombre: "asc",
     },
   });
 }

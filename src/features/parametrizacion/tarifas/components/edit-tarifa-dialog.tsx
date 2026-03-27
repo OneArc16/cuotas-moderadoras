@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+
 import { updateTarifa } from "@/features/parametrizacion/tarifas/lib/update-tarifa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ type Option = {
 type ContratoOption = {
   id: number;
   nombre: string;
+  tipo: string;
   categorias: {
     id: number;
     categoriaAfiliacionId: number;
@@ -50,10 +52,9 @@ type ContratoOption = {
 
 type EditTarifaDialogProps = {
   id: number;
-  servicioId: number;
+  servicioId: number | null;
   contratoId: number;
   categoriaAfiliacionId: number | null;
-  tipoCobro: "CUOTA_MODERADORA" | "PARTICULAR";
   valor: string;
   fechaInicioVigencia: string;
   fechaFinVigencia: string | null;
@@ -71,91 +72,88 @@ export function EditTarifaDialog({
   servicioId,
   contratoId,
   categoriaAfiliacionId,
-  tipoCobro,
   valor,
   fechaInicioVigencia,
   fechaFinVigencia,
   servicios,
   contratos,
-  categorias,
 }: EditTarifaDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [servicioOpen, setServicioOpen] = useState(false);
-  const [servicioIdValue, setServicioIdValue] = useState(servicioId);
+  const [servicioIdValue, setServicioIdValue] = useState(servicioId ?? 0);
   const [contratoIdValue, setContratoIdValue] = useState(contratoId);
-  const [categoriaAfiliacionIdValue, setCategoriaAfiliacionIdValue] = useState<
-    number | ""
-  >(categoriaAfiliacionId ?? "");
-  const [tipoCobroValue, setTipoCobroValue] = useState<
-    "CUOTA_MODERADORA" | "PARTICULAR"
-  >(tipoCobro);
+  const [categoriaAfiliacionIdValue, setCategoriaAfiliacionIdValue] = useState(
+    categoriaAfiliacionId ?? 0,
+  );
   const [valorValue, setValorValue] = useState(valor);
   const [fechaInicioValue, setFechaInicioValue] = useState(
-    toDateInputValue(fechaInicioVigencia)
+    toDateInputValue(fechaInicioVigencia),
   );
   const [fechaFinValue, setFechaFinValue] = useState(
-    toDateInputValue(fechaFinVigencia)
+    toDateInputValue(fechaFinVigencia),
   );
   const [isPending, startTransition] = useTransition();
 
-  const selectedServicio =
-    servicios.find((servicio) => servicio.id === servicioIdValue) ?? null;
-
-    const selectedContrato =
-  contratos.find((contrato) => contrato.id === contratoIdValue) ?? null;
-
-const categoriasDisponibles = selectedContrato
-  ? selectedContrato.categorias.map((relacion) => ({
-      id: relacion.categoriaAfiliacion.id,
-      nombre: relacion.categoriaAfiliacion.nombre,
-    }))
-  : [];
-
-useEffect(() => {
-  if (categoriaAfiliacionIdValue === "") return;
-
-  const categoriaSigueDisponible = categoriasDisponibles.some(
-    (categoria) => categoria.id === Number(categoriaAfiliacionIdValue)
+  const selectedContrato = useMemo(
+    () => contratos.find((contratoItem) => contratoItem.id === contratoIdValue) ?? null,
+    [contratoIdValue, contratos],
   );
 
-  if (!categoriaSigueDisponible) {
-    setCategoriaAfiliacionIdValue("");
-  }
-}, [categoriaAfiliacionIdValue, categoriasDisponibles]);
+  const selectedServicio = useMemo(
+    () => servicios.find((servicioItem) => servicioItem.id === servicioIdValue) ?? null,
+    [servicioIdValue, servicios],
+  );
+
+  const contratoEsParticular = selectedContrato?.tipo === "PARTICULAR";
+
+  const categoriasDisponibles = useMemo(() => {
+    if (!selectedContrato || contratoEsParticular) {
+      return [];
+    }
+
+    return selectedContrato.categorias.map((relacion) => ({
+      id: relacion.categoriaAfiliacion.id,
+      nombre: relacion.categoriaAfiliacion.nombre,
+    }));
+  }, [contratoEsParticular, selectedContrato]);
 
   useEffect(() => {
-    setServicioIdValue(servicioId);
+    setServicioIdValue(servicioId ?? 0);
     setContratoIdValue(contratoId);
-    setCategoriaAfiliacionIdValue(categoriaAfiliacionId ?? "");
-    setTipoCobroValue(tipoCobro);
+    setCategoriaAfiliacionIdValue(categoriaAfiliacionId ?? 0);
     setValorValue(valor);
     setFechaInicioValue(toDateInputValue(fechaInicioVigencia));
     setFechaFinValue(toDateInputValue(fechaFinVigencia));
   }, [
-    servicioId,
-    contratoId,
     categoriaAfiliacionId,
-    tipoCobro,
-    valor,
-    fechaInicioVigencia,
+    contratoId,
     fechaFinVigencia,
+    fechaInicioVigencia,
+    servicioId,
+    valor,
   ]);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function handleContratoChange(nextContratoId: number) {
+    setContratoIdValue(nextContratoId);
+    setServicioIdValue(0);
+    setCategoriaAfiliacionIdValue(0);
+  }
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     startTransition(async () => {
       try {
         await updateTarifa({
           id,
-          servicioId: servicioIdValue,
           contratoId: contratoIdValue,
+          servicioId:
+            contratoEsParticular && servicioIdValue > 0 ? servicioIdValue : undefined,
           categoriaAfiliacionId:
-            categoriaAfiliacionIdValue === ""
-              ? undefined
-              : Number(categoriaAfiliacionIdValue),
-          tipoCobro: tipoCobroValue,
+            !contratoEsParticular && categoriaAfiliacionIdValue > 0
+              ? categoriaAfiliacionIdValue
+              : undefined,
           valor: valorValue,
           fechaInicioVigencia: fechaInicioValue,
           fechaFinVigencia: fechaFinValue || undefined,
@@ -166,9 +164,7 @@ useEffect(() => {
         router.refresh();
       } catch (error) {
         toast.error(
-          error instanceof Error
-            ? error.message
-            : "No se pudo actualizar la tarifa"
+          error instanceof Error ? error.message : "No se pudo actualizar la tarifa",
         );
       }
     });
@@ -195,14 +191,43 @@ useEffect(() => {
             <div>
               <p className="text-sm font-medium">Información principal</p>
               <p className="text-sm text-muted-foreground">
-                Selecciona servicio, contrato y categoría.
+                El tipo de cobro se define automáticamente según el contrato.
               </p>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor={`servicio-tarifa-${id}`}>Servicio</Label>
+                <Label htmlFor={`contrato-tarifa-${id}`}>Contrato</Label>
+                <select
+                  id={`contrato-tarifa-${id}`}
+                  value={contratoIdValue}
+                  onChange={(event) => handleContratoChange(Number(event.target.value))}
+                  className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                >
+                  {contratos.map((contratoItem) => (
+                    <option key={contratoItem.id} value={contratoItem.id}>
+                      {contratoItem.nombre} · {contratoItem.tipo}
+                    </option>
+                  ))}
+                </select>
 
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tipo de cobro resuelto</Label>
+                <div className="flex h-10 items-center rounded-md border bg-muted/30 px-3 text-sm font-medium text-foreground">
+                  {!selectedContrato
+                    ? "Selecciona un contrato"
+                    : contratoEsParticular
+                      ? "PARTICULAR"
+                      : "CUOTA MODERADORA"}
+                </div>
+              </div>
+            </div>
+
+            {contratoEsParticular ? (
+              <div className="space-y-2">
+                <Label htmlFor={`servicio-tarifa-${id}`}>Servicio</Label>
                 <Popover open={servicioOpen} onOpenChange={setServicioOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -212,12 +237,10 @@ useEffect(() => {
                       aria-expanded={servicioOpen}
                       className={cn(
                         "w-full justify-between font-normal",
-                        !selectedServicio && "text-muted-foreground"
+                        !selectedServicio && "text-muted-foreground",
                       )}
                     >
-                      {selectedServicio
-                        ? selectedServicio.nombre
-                        : "Selecciona un servicio"}
+                      {selectedServicio ? selectedServicio.nombre : "Selecciona un servicio"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -228,24 +251,24 @@ useEffect(() => {
                       <CommandList>
                         <CommandEmpty>No se encontraron servicios.</CommandEmpty>
                         <CommandGroup>
-                          {servicios.map((servicio) => (
+                          {servicios.map((servicioItem) => (
                             <CommandItem
-                              key={servicio.id}
-                              value={servicio.nombre}
+                              key={servicioItem.id}
+                              value={servicioItem.nombre}
                               onSelect={() => {
-                                setServicioIdValue(servicio.id);
+                                setServicioIdValue(servicioItem.id);
                                 setServicioOpen(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  servicioIdValue === servicio.id
+                                  servicioIdValue === servicioItem.id
                                     ? "opacity-100"
-                                    : "opacity-0"
+                                    : "opacity-0",
                                 )}
                               />
-                              {servicio.nombre}
+                              {servicioItem.nombre}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -254,70 +277,31 @@ useEffect(() => {
                   </PopoverContent>
                 </Popover>
               </div>
-
+            ) : (
               <div className="space-y-2">
-                <Label htmlFor={`contrato-tarifa-${id}`}>Contrato</Label>
-                <select
-                  id={`contrato-tarifa-${id}`}
-                  value={contratoIdValue}
-                  onChange={(e) => setContratoIdValue(Number(e.target.value))}
-                  className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                >
-                  {contratos.map((contrato) => (
-                    <option key={contrato.id} value={contrato.id}>
-                      {contrato.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor={`categoria-tarifa-${id}`}>
-                  Categoría de afiliación
-                </Label>
+                <Label htmlFor={`categoria-tarifa-${id}`}>Categoría de afiliación</Label>
                 <select
                   id={`categoria-tarifa-${id}`}
                   value={categoriaAfiliacionIdValue}
-                  onChange={(e) =>
-                    setCategoriaAfiliacionIdValue(
-                      e.target.value === "" ? "" : Number(e.target.value)
-                    )
+                  onChange={(event) =>
+                    setCategoriaAfiliacionIdValue(Number(event.target.value))
                   }
                   className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  disabled={!selectedContrato}
                 >
-                  <option value="">
-                    {selectedContrato ? "Sin categoría" : "Primero selecciona un contrato"}
-                  </option>
+                  <option value={0}>Selecciona una categoría</option>
                   {categoriasDisponibles.map((categoria) => (
                     <option key={categoria.id} value={categoria.id}>
                       {categoria.nombre}
                     </option>
                   ))}
                 </select>
+                <p className="text-sm text-muted-foreground">
+                  En cuota moderadora el valor sale de la categoría. El
+                  servicio se seguirá seleccionando en admisiones solo para
+                  registrar la atención.
+                </p>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor={`tipo-cobro-tarifa-${id}`}>
-                  Tipo de cobro
-                </Label>
-                <select
-                  id={`tipo-cobro-tarifa-${id}`}
-                  value={tipoCobroValue}
-                  onChange={(e) =>
-                    setTipoCobroValue(
-                      e.target.value as "CUOTA_MODERADORA" | "PARTICULAR"
-                    )
-                  }
-                  className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="CUOTA_MODERADORA">CUOTA MODERADORA</option>
-                  <option value="PARTICULAR">PARTICULAR</option>
-                </select>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -337,33 +321,29 @@ useEffect(() => {
                   min="0"
                   step="0.01"
                   value={valorValue}
-                  onChange={(e) => setValorValue(e.target.value)}
+                  onChange={(event) => setValorValue(event.target.value)}
                   className="w-full"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`fecha-inicio-tarifa-${id}`}>
-                  Fecha inicio vigencia
-                </Label>
+                <Label htmlFor={`fecha-inicio-tarifa-${id}`}>Fecha inicio vigencia</Label>
                 <Input
                   id={`fecha-inicio-tarifa-${id}`}
                   type="date"
                   value={fechaInicioValue}
-                  onChange={(e) => setFechaInicioValue(e.target.value)}
+                  onChange={(event) => setFechaInicioValue(event.target.value)}
                   className="w-full"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`fecha-fin-tarifa-${id}`}>
-                  Fecha fin vigencia
-                </Label>
+                <Label htmlFor={`fecha-fin-tarifa-${id}`}>Fecha fin vigencia</Label>
                 <Input
                   id={`fecha-fin-tarifa-${id}`}
                   type="date"
                   value={fechaFinValue}
-                  onChange={(e) => setFechaFinValue(e.target.value)}
+                  onChange={(event) => setFechaFinValue(event.target.value)}
                   className="w-full"
                 />
               </div>

@@ -3,63 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUsuario } from "@/lib/current-user";
+import { getFechaOperativaBogota } from "@/features/sesion-operativa/lib/fecha-operativa";
 
 type StartSesionOperativaInput = {
-  moduloAtencionId: number;
+  cajaId: number;
 };
 
-function getFechaOperativaBogota() {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-
-  const fecha = formatter.format(new Date());
-  return new Date(`${fecha}T00:00:00-05:00`);
-}
-
 export async function startSesionOperativa(
-  input: StartSesionOperativaInput
+  input: StartSesionOperativaInput,
 ) {
   const usuario = await getCurrentUsuario();
 
-  const modulo = await prisma.moduloAtencion.findUnique({
-    where: { id: input.moduloAtencionId },
-    include: {
-      piso: {
-        include: {
-          cajas: {
-            where: { estado: "ACTIVO" },
-            orderBy: { nombre: "asc" },
-            select: {
-              id: true,
-              nombre: true,
-              estado: true,
-            },
-          },
-        },
-      },
+  const caja = await prisma.caja.findUnique({
+    where: { id: input.cajaId },
+    select: {
+      id: true,
+      nombre: true,
+      estado: true,
     },
   });
 
-  if (!modulo) {
-    throw new Error("El módulo de atención no existe");
-  }
-
-  if (modulo.estado !== "ACTIVO") {
-    throw new Error("El módulo de atención no está activo");
-  }
-
-  if (modulo.piso.estado !== "ACTIVO") {
-    throw new Error("El piso del módulo no está activo");
-  }
-
-  const caja = modulo.piso.cajas[0] ?? null;
-
   if (!caja) {
-    throw new Error("El piso seleccionado no tiene una caja activa");
+    throw new Error("La caja seleccionada no existe");
+  }
+
+  if (caja.estado !== "ACTIVO") {
+    throw new Error("La caja seleccionada no está activa");
   }
 
   const fechaOperativa = getFechaOperativaBogota();
@@ -80,7 +49,7 @@ export async function startSesionOperativa(
 
   if (!jornadaCaja) {
     throw new Error(
-      "La caja del piso no tiene una jornada abierta para hoy"
+      "La caja seleccionada no tiene una jornada abierta para hoy",
     );
   }
 
@@ -98,8 +67,6 @@ export async function startSesionOperativa(
   await prisma.sesionOperativa.create({
     data: {
       usuarioId: usuario.id,
-      moduloAtencionId: modulo.id,
-      pisoId: modulo.pisoId,
       cajaId: caja.id,
       fechaOperativa,
       horaInicio: new Date(),
