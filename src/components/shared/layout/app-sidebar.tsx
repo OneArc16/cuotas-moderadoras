@@ -57,6 +57,13 @@ const OPERACION_ITEMS: NavItem[] = [
     description: "Entradas y salidas",
     permission: RBAC_PERMISSION.MOVEMENT_VIEW,
   },
+  {
+    href: "/reportes",
+    label: "Reportes",
+    shortLabel: "RP",
+    description: "Indicadores operativos",
+    permission: RBAC_PERMISSION.REPORT_VIEW,
+  },
 ];
 
 const PARAMETRIZACION_ITEMS: NavItem[] = [
@@ -273,13 +280,6 @@ export function AppSidebar({ usuario, permissionCodes = [] }: AppSidebarProps) {
         </div>
 
         <div className="mt-4 space-y-3">
-          <div className="rounded-[20px] border border-border/70 bg-secondary/35 p-4">
-            <p className="text-sm font-medium text-foreground">Flujo recomendado</p>
-            <p className="mt-1 text-[0.82rem] leading-5 text-muted-foreground">
-              Dashboard, Caja, Admisiones y luego Movimientos.
-            </p>
-          </div>
-
           <button
             type="button"
             onClick={handleSignOut}

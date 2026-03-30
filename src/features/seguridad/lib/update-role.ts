@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -7,8 +7,9 @@ import { createAuditEntry } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 import {
-  countOtherActiveSecurityManagerRoles,
+  countActiveSecurityManagersOutsideRole,
   normalizeRoleName,
+  roleHasSecurityManagePermission,
   SYSTEM_ROLE_NAMES,
 } from "@/features/seguridad/lib/security-role-utils";
 
@@ -94,16 +95,14 @@ export async function updateRole(input: unknown): Promise<UpdateRoleResult> {
     };
   }
 
-  const hasSecurityManage = role.permisos.some(
-    (item) => item.permiso.codigo === RBAC_PERMISSION.SECURITY_MANAGE,
-  );
+  const hasSecurityManage = roleHasSecurityManagePermission(role);
 
   if (
     role.estado === "ACTIVO" &&
     parsed.data.estado === "INACTIVO" &&
     hasSecurityManage
   ) {
-    const otherSecurityManagers = await countOtherActiveSecurityManagerRoles(
+    const otherSecurityManagers = await countActiveSecurityManagersOutsideRole(
       role.id,
     );
 
@@ -111,7 +110,9 @@ export async function updateRole(input: unknown): Promise<UpdateRoleResult> {
       return {
         ok: false,
         message:
-          "Debe quedar al menos un perfil activo con permiso para administrar seguridad.",
+          actor.rolId === role.id
+            ? "No puedes inactivar este perfil porque dejarias tu propio acceso a seguridad sin respaldo activo."
+            : "Debe quedar al menos un colaborador activo con permiso para administrar seguridad.",
       };
     }
   }

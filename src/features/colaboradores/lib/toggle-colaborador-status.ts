@@ -6,6 +6,10 @@ import { z } from "zod";
 import { createAuditEntry } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
+import {
+  countActiveSecurityManagersOutsideUser,
+  roleHasSecurityManagePermission,
+} from "@/features/seguridad/lib/security-role-utils";
 
 import {
   buildColaboradorAuditSnapshot,
@@ -50,6 +54,15 @@ export async function toggleColaboradorStatus(formData: FormData) {
       rol: {
         select: {
           nombre: true,
+          permisos: {
+            select: {
+              permiso: {
+                select: {
+                  codigo: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -61,6 +74,23 @@ export async function toggleColaboradorStatus(formData: FormData) {
 
   const nuevoEstado = colaborador.estado === "ACTIVO" ? "INACTIVO" : "ACTIVO";
   const nombreCompleto = getColaboradorDisplayName(colaborador);
+  const currentHasSecurityManage =
+    colaborador.estado === "ACTIVO" &&
+    roleHasSecurityManagePermission(colaborador.rol);
+
+  if (currentHasSecurityManage && nuevoEstado !== "ACTIVO") {
+    const otherSecurityManagers = await countActiveSecurityManagersOutsideUser(
+      colaborador.id,
+    );
+
+    if (otherSecurityManagers === 0) {
+      throw new Error(
+        colaborador.id === actor.id
+          ? "No puedes desactivarte porque perderias el ultimo acceso activo a seguridad."
+          : "Debe quedar al menos un colaborador activo con permiso para administrar seguridad.",
+      );
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.usuario.update({

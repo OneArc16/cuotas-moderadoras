@@ -9,6 +9,10 @@ import { createAuditEntry } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
+import {
+  countActiveSecurityManagersOutsideUser,
+  roleHasSecurityManagePermission,
+} from "@/features/seguridad/lib/security-role-utils";
 
 import {
   buildColaboradorAuditSnapshot,
@@ -134,6 +138,15 @@ export async function updateColaborador(
         rol: {
           select: {
             nombre: true,
+            permisos: {
+              select: {
+                permiso: {
+                  select: {
+                    codigo: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -152,7 +165,20 @@ export async function updateColaborador(
     }),
     prisma.rol.findUnique({
       where: { id: data.rolId },
-      select: { id: true, estado: true, nombre: true },
+      select: {
+        id: true,
+        estado: true,
+        nombre: true,
+        permisos: {
+          select: {
+            permiso: {
+              select: {
+                codigo: true,
+              },
+            },
+          },
+        },
+      },
     }),
   ]);
 
@@ -209,6 +235,28 @@ export async function updateColaborador(
         rolId: ["Debes seleccionar un rol activo."],
       },
     };
+  }
+
+  const currentHasSecurityManage =
+    colaboradorActual.estado === "ACTIVO" &&
+    roleHasSecurityManagePermission(colaboradorActual.rol);
+  const nextHasSecurityManage =
+    data.estado === "ACTIVO" && roleHasSecurityManagePermission(rolExistente);
+
+  if (currentHasSecurityManage && !nextHasSecurityManage) {
+    const otherSecurityManagers = await countActiveSecurityManagersOutsideUser(
+      colaboradorActual.id,
+    );
+
+    if (otherSecurityManagers === 0) {
+      return {
+        success: false,
+        message:
+          colaboradorActual.id === actor.id
+            ? "No puedes quitarte el ultimo acceso activo a seguridad desde tu propio usuario."
+            : "Debe quedar al menos un colaborador activo con permiso para administrar seguridad.",
+      };
+    }
   }
 
   const previousSnapshot = buildColaboradorAuditSnapshot({

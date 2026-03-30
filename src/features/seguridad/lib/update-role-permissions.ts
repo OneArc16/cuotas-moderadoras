@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createAuditEntry } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
-import { countOtherActiveSecurityManagerRoles } from "@/features/seguridad/lib/security-role-utils";
+import { countActiveSecurityManagersOutsideRole } from "@/features/seguridad/lib/security-role-utils";
 
 const updateRolePermissionsSchema = z.object({
   roleId: z.coerce.number().int().positive("Perfil invalido."),
@@ -88,7 +88,7 @@ export async function updateRolePermissions(
   );
 
   if (role.estado === "ACTIVO" && !nextHasSecurityManage) {
-    const otherSecurityManagers = await countOtherActiveSecurityManagerRoles(
+    const otherSecurityManagers = await countActiveSecurityManagersOutsideRole(
       role.id,
     );
 
@@ -96,7 +96,9 @@ export async function updateRolePermissions(
       return {
         ok: false,
         message:
-          "Debe quedar al menos un perfil activo con permiso para administrar seguridad.",
+          actor.rolId === role.id
+            ? "No puedes retirar este permiso porque dejarias tu propio acceso a seguridad sin respaldo activo."
+            : "Debe quedar al menos un colaborador activo con permiso para administrar seguridad.",
       };
     }
   }
