@@ -14,14 +14,20 @@ export async function getCurrentUsuario() {
     return null;
   }
 
-  const usuario = await prisma.usuario.findUnique({
+  return prisma.usuario.findUnique({
     where: {
       authUserId,
     },
     include: {
-      rol: true,
+      rol: {
+        include: {
+          permisos: {
+            include: {
+              permiso: true,
+            },
+          },
+        },
+      },
     },
   });
-
-  return usuario;
 }

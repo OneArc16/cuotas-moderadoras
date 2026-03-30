@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
-import { getCurrentUsuario } from "@/lib/current-user";
+import { RBAC_PERMISSION, requirePermission } from "@/lib/rbac";
 
 type ReopenJornadaCajaInput = {
   jornadaId: number;
@@ -16,16 +17,10 @@ export async function reopenJornadaCaja(input: ReopenJornadaCajaInput) {
     throw new Error("El motivo de reapertura es obligatorio");
   }
 
-  const usuario = await getCurrentUsuario();
-
-  const rolNombre = usuario.rol.nombre.toUpperCase();
-
-  if (
-    rolNombre !== "ADMINISTRADOR" &&
-    rolNombre !== "SUPERADMINISTRADOR"
-  ) {
-    throw new Error("Solo un administrador puede reabrir una caja");
-  }
+  const usuario = await requirePermission(
+    RBAC_PERMISSION.CAJA_REOPEN,
+    "Solo un usuario autorizado puede reabrir una caja",
+  );
 
   const jornada = await prisma.jornadaCaja.findUnique({
     where: { id: input.jornadaId },

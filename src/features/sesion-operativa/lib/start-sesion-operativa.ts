@@ -1,8 +1,9 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
-import { getCurrentUsuario } from "@/lib/current-user";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 import { getFechaOperativaBogota } from "@/features/sesion-operativa/lib/fecha-operativa";
 
 type StartSesionOperativaInput = {
@@ -12,7 +13,10 @@ type StartSesionOperativaInput = {
 export async function startSesionOperativa(
   input: StartSesionOperativaInput,
 ) {
-  const usuario = await getCurrentUsuario();
+  const usuario = await requirePermission(
+    RBAC_PERMISSION.SESSION_START,
+    "No tienes permiso para iniciar sesiones operativas.",
+  );
 
   const caja = await prisma.caja.findUnique({
     where: { id: input.cajaId },
@@ -28,7 +32,7 @@ export async function startSesionOperativa(
   }
 
   if (caja.estado !== "ACTIVO") {
-    throw new Error("La caja seleccionada no está activa");
+    throw new Error("La caja seleccionada no esta activa");
   }
 
   const fechaOperativa = getFechaOperativaBogota();

@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 import { normalizeLoginUsername } from "./normalize-login-username";
 
@@ -39,6 +40,10 @@ export async function updateColaborador(
   _prevState: UpdateColaboradorActionState,
   formData: FormData,
 ): Promise<UpdateColaboradorActionState> {
+  await requirePermission(
+    RBAC_PERMISSION.COLLABORATOR_MANAGE,
+    "No tienes permiso para gestionar colaboradores.",
+  );
   const parsed = updateColaboradorSchema.safeParse({
     id: formData.get("id"),
     tipoDocumento: formData.get("tipoDocumento"),

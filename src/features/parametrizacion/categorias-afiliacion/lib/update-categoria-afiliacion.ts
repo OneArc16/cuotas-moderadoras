@@ -12,6 +12,10 @@ type UpdateCategoriaAfiliacionInput = {
 export async function updateCategoriaAfiliacion(
   input: UpdateCategoriaAfiliacionInput
 ) {
+  await requirePermission(
+    RBAC_PERMISSION.CATEGORY_MANAGE,
+    "No tienes permiso para gestionar categorias de afiliacion.",
+  );
   const codigo = input.codigo.trim();
   const nombre = input.nombre.trim();
 

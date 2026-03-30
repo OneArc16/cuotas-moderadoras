@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/shared/layout/app-sidebar";
 import { getCurrentUsuario } from "@/lib/current-user";
+import { resolvePermissionCodes } from "@/lib/rbac";
 
 export default async function DashboardLayout({
   children,
@@ -14,6 +15,8 @@ export default async function DashboardLayout({
   if (!usuario) {
     redirect("/login");
   }
+
+  const permissionCodes = resolvePermissionCodes(usuario);
 
   return (
     <div className="min-h-screen">
@@ -30,6 +33,7 @@ export default async function DashboardLayout({
               .join(" "),
             username: usuario.username,
           }}
+          permissionCodes={permissionCodes}
         />
 
         <section className="min-w-0 flex-1 pb-2">{children}</section>
@@ -37,4 +41,3 @@ export default async function DashboardLayout({
     </div>
   );
 }
-

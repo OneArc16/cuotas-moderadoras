@@ -11,6 +11,10 @@ type CreateContratoCategoriaAfiliacionInput = {
 export async function createContratoCategoriaAfiliacion(
   input: CreateContratoCategoriaAfiliacionInput
 ) {
+  await requirePermission(
+    RBAC_PERMISSION.CONTRACT_MANAGE,
+    "No tienes permiso para gestionar categorias por contrato.",
+  );
   const contrato = await prisma.contrato.findUnique({
     where: { id: input.contratoId },
     select: { id: true },

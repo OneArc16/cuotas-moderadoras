@@ -9,6 +9,10 @@ type UpdatePisoInput = {
 };
 
 export async function updatePiso(input: UpdatePisoInput) {
+  await requirePermission(
+    RBAC_PERMISSION.BOX_MANAGE,
+    "No tienes permiso para gestionar estructuras fisicas legadas.",
+  );
   const nombre = input.nombre.trim();
 
   if (!nombre) {

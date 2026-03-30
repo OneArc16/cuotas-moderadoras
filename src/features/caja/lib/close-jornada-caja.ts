@@ -1,8 +1,9 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
-import { getCurrentUsuario } from "@/lib/current-user";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 type CloseJornadaCajaInput = {
   jornadaId: number;
@@ -14,10 +15,13 @@ export async function closeJornadaCaja(input: CloseJornadaCajaInput) {
   const efectivoContado = Number(input.efectivoContado);
 
   if (Number.isNaN(efectivoContado) || efectivoContado < 0) {
-    throw new Error("El efectivo contado debe ser un valor válido");
+    throw new Error("El efectivo contado debe ser un valor valido");
   }
 
-  const usuario = await getCurrentUsuario();
+  const usuario = await requirePermission(
+    RBAC_PERMISSION.CAJA_CLOSE,
+    "No tienes permiso para cerrar jornadas de caja.",
+  );
 
   const jornada = await prisma.jornadaCaja.findUnique({
     where: { id: input.jornadaId },

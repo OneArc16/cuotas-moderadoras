@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 const resetColaboradorPasswordSchema = z
   .object({
@@ -33,6 +34,10 @@ export async function resetColaboradorPassword(
   _prevState: ResetColaboradorPasswordActionState,
   formData: FormData,
 ): Promise<ResetColaboradorPasswordActionState> {
+  await requirePermission(
+    RBAC_PERMISSION.COLLABORATOR_MANAGE,
+    "No tienes permiso para gestionar colaboradores.",
+  );
   const parsed = resetColaboradorPasswordSchema.safeParse({
     id: formData.get("id"),
     password: formData.get("password"),

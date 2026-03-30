@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 const createColaboradorSchema = z.object({
   tipoDocumento: z.enum(["CC", "CE", "TI", "RC", "PASAPORTE", "NIT", "OTRO"]),
@@ -48,6 +49,10 @@ export async function createColaborador(
   _prevState: CreateColaboradorActionState,
   formData: FormData,
 ): Promise<CreateColaboradorActionState> {
+  await requirePermission(
+    RBAC_PERMISSION.COLLABORATOR_MANAGE,
+    "No tienes permiso para gestionar colaboradores.",
+  );
   const parsed = createColaboradorSchema.safeParse({
     tipoDocumento: formData.get("tipoDocumento"),
     numeroDocumento: formData.get("numeroDocumento"),

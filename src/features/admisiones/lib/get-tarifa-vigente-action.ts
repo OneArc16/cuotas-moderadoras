@@ -1,17 +1,18 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 import {
   getTarifaVigente,
   type TarifaVigenteResult,
 } from "@/features/admisiones/lib/get-tarifa-vigente";
 
 const getTarifaVigenteSchema = z.object({
-  contratoId: z.coerce.number().int().positive("Contrato inválido."),
-  servicioId: z.coerce.number().int().positive("Servicio inválido."),
+  contratoId: z.coerce.number().int().positive("Contrato invalido."),
+  servicioId: z.coerce.number().int().positive("Servicio invalido."),
   categoriaAfiliacionId: z.coerce.number().int().positive().nullable().optional(),
 });
 
@@ -39,7 +40,14 @@ export async function getTarifaVigenteAction(
   if (!currentUser) {
     return {
       ok: false,
-      message: "No se pudo validar la sesión actual.",
+      message: "No se pudo validar la sesion actual.",
+    };
+  }
+
+  if (!hasPermission(currentUser, RBAC_PERMISSION.ADMISION_CREATE)) {
+    return {
+      ok: false,
+      message: "No tienes permiso para preparar una admision.",
     };
   }
 
@@ -50,7 +58,7 @@ export async function getTarifaVigenteAction(
 
     return {
       ok: false,
-      message: "Selecciona contrato, servicio y categoría válidos.",
+      message: "Selecciona contrato, servicio y categoria validos.",
       fieldErrors: {
         contratoId: flattened.fieldErrors.contratoId,
         servicioId: flattened.fieldErrors.servicioId,
@@ -71,9 +79,9 @@ export async function getTarifaVigenteAction(
   if (!contrato || contrato.estado !== "ACTIVO") {
     return {
       ok: false,
-      message: "El contrato seleccionado no está disponible.",
+      message: "El contrato seleccionado no esta disponible.",
       fieldErrors: {
-        contratoId: ["El contrato seleccionado no está disponible."],
+        contratoId: ["El contrato seleccionado no esta disponible."],
       },
     };
   }
@@ -81,10 +89,10 @@ export async function getTarifaVigenteAction(
   if (contrato.tipo !== "PARTICULAR" && !parsed.data.categoriaAfiliacionId) {
     return {
       ok: false,
-      message: "Debes seleccionar una categoría para este contrato.",
+      message: "Debes seleccionar una categoria para este contrato.",
       fieldErrors: {
         categoriaAfiliacionId: [
-          "Debes seleccionar una categoría para este contrato.",
+          "Debes seleccionar una categoria para este contrato.",
         ],
       },
     };

@@ -1,9 +1,13 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { AccessDeniedState } from "@/components/shared/page/access-denied-state";
 import { ColaboradoresEstadoFilter } from "@/features/colaboradores/components/colaboradores-estado-filter";
 import { ColaboradoresSearchInput } from "@/features/colaboradores/components/colaboradores-search-input";
 import { ToggleColaboradorStatusButton } from "@/features/colaboradores/components/toggle-colaborador-status-button";
+import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 function getNombreCompleto(usuario: {
   primerNombre: string;
@@ -39,6 +43,38 @@ export default async function ColaboradoresPage({
 }: {
   searchParams?: Promise<{ q?: string; estado?: string }>;
 }) {
+  const usuario = await getCurrentUsuario();
+
+  if (!usuario) {
+    redirect("/login");
+  }
+
+  if (!hasPermission(usuario, RBAC_PERMISSION.COLLABORATOR_MANAGE)) {
+    return (
+      <main className="space-y-6">
+        <section className="rounded-[28px] border bg-background p-6 shadow-sm">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              Administracion
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Colaboradores
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Administra el personal interno del sistema, sus roles y su estado
+              operativo.
+            </p>
+          </div>
+        </section>
+
+        <AccessDeniedState
+          title="No tienes acceso a colaboradores"
+          description="Tu perfil actual no tiene permisos para administrar usuarios internos."
+        />
+      </main>
+    );
+  }
+
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const q = resolvedSearchParams?.q?.trim() ?? "";
   const estadoParam = resolvedSearchParams?.estado?.trim() ?? "";
@@ -98,7 +134,7 @@ export default async function ColaboradoresPage({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-medium text-muted-foreground">
-              Administración
+              Administracion
             </p>
             <h1 className="text-2xl font-semibold tracking-tight">
               Colaboradores
@@ -148,17 +184,13 @@ export default async function ColaboradoresPage({
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   {q ? (
                     <span>
-                      Búsqueda:{" "}
-                      <span className="font-medium text-foreground">{q}</span>
+                      Busqueda: <span className="font-medium text-foreground">{q}</span>
                     </span>
                   ) : null}
 
                   {estado ? (
                     <span>
-                      Estado:{" "}
-                      <span className="font-medium text-foreground">
-                        {estado}
-                      </span>
+                      Estado: <span className="font-medium text-foreground">{estado}</span>
                     </span>
                   ) : null}
                 </div>

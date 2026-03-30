@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 import { normalizeTarifaInput } from "@/features/parametrizacion/tarifas/lib/normalize-tarifa-input";
 
 type UpdateTarifaInput = {
@@ -15,6 +16,10 @@ type UpdateTarifaInput = {
 };
 
 export async function updateTarifa(input: UpdateTarifaInput) {
+  await requirePermission(
+    RBAC_PERMISSION.TARIFF_MANAGE,
+    "No tienes permiso para gestionar tarifas.",
+  );
   const { id, ...rawData } = input;
   const data = await normalizeTarifaInput(rawData);
 

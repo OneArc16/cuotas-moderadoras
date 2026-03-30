@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { MovimientosFilters } from "@/features/movimientos/components/movimientos-filters";
+import { getBogotaOperationalDayParts } from "@/lib/fecha-operativa-bogota";
 import { prisma } from "@/lib/prisma";
 
 const METODOS_PAGO = [
@@ -70,8 +71,13 @@ export default async function MovimientosPage({
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
 
-  const desde = resolvedSearchParams?.desde?.trim() ?? "";
-  const hasta = resolvedSearchParams?.hasta?.trim() ?? "";
+  const rawDesde = resolvedSearchParams?.desde?.trim() ?? "";
+  const rawHasta = resolvedSearchParams?.hasta?.trim() ?? "";
+  const hasExplicitDateFilter = Boolean(rawDesde || rawHasta);
+  const { year, month, day } = getBogotaOperationalDayParts();
+  const today = `${year}-${month}-${day}`;
+  const desde = hasExplicitDateFilter ? rawDesde : today;
+  const hasta = hasExplicitDateFilter ? rawHasta : today;
   const metodoParam = resolvedSearchParams?.metodo?.trim() ?? "";
   const q = resolvedSearchParams?.q?.trim() ?? "";
   const cajaIdParam = resolvedSearchParams?.cajaId?.trim() ?? "";
@@ -198,7 +204,7 @@ export default async function MovimientosPage({
   const totalSalidas = Number(salidasAgg._sum.valor ?? 0);
   const recaudoNeto = totalEntradas - totalSalidas;
 
-  const filtrosActivos = Boolean(desde || hasta || metodoPago || q || cajaId);
+  const filtrosActivos = Boolean(rawDesde || rawHasta || metodoPago || q || cajaId);
 
   return (
     <main className="space-y-6">

@@ -1,18 +1,23 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Loader2, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import {
+  RBAC_PERMISSION,
+  type PermissionCode,
+} from "@/lib/rbac/definitions";
 
 type AppSidebarProps = {
   usuario?: {
     nombreCompleto: string;
     username: string;
   } | null;
+  permissionCodes?: PermissionCode[];
 };
 
 type NavItem = {
@@ -20,6 +25,7 @@ type NavItem = {
   label: string;
   shortLabel: string;
   description: string;
+  permission: PermissionCode;
 };
 
 const OPERACION_ITEMS: NavItem[] = [
@@ -28,24 +34,28 @@ const OPERACION_ITEMS: NavItem[] = [
     label: "Dashboard",
     shortLabel: "DB",
     description: "Inicio operativo",
+    permission: RBAC_PERMISSION.DASHBOARD_VIEW,
   },
   {
     href: "/admisiones",
     label: "Admisiones",
     shortLabel: "AD",
-    description: "Recepción y cobro",
+    description: "Recepcion y cobro",
+    permission: RBAC_PERMISSION.ADMISION_CREATE,
   },
   {
     href: "/caja",
     label: "Caja",
     shortLabel: "CJ",
     description: "Apertura y cierre",
+    permission: RBAC_PERMISSION.CAJA_VIEW,
   },
   {
     href: "/movimientos",
     label: "Movimientos",
     shortLabel: "MV",
     description: "Entradas y salidas",
+    permission: RBAC_PERMISSION.MOVEMENT_VIEW,
   },
 ];
 
@@ -55,30 +65,35 @@ const PARAMETRIZACION_ITEMS: NavItem[] = [
     label: "Cajas",
     shortLabel: "CA",
     description: "Puntos de recaudo",
+    permission: RBAC_PERMISSION.BOX_MANAGE,
   },
   {
     href: "/parametrizacion/contratos",
     label: "Contratos",
     shortLabel: "CT",
     description: "Pagadores",
+    permission: RBAC_PERMISSION.CONTRACT_MANAGE,
   },
   {
     href: "/parametrizacion/categorias-afiliacion",
-    label: "Categorías",
+    label: "Categorias",
     shortLabel: "CG",
-    description: "Afiliación",
+    description: "Afiliacion",
+    permission: RBAC_PERMISSION.CATEGORY_MANAGE,
   },
   {
     href: "/parametrizacion/servicios",
     label: "Servicios",
     shortLabel: "SV",
-    description: "Catálogo asistencial",
+    description: "Catalogo asistencial",
+    permission: RBAC_PERMISSION.SERVICE_MANAGE,
   },
   {
     href: "/parametrizacion/tarifas",
     label: "Tarifas",
     shortLabel: "TF",
     description: "Vigencias y cobros",
+    permission: RBAC_PERMISSION.TARIFF_MANAGE,
   },
 ];
 
@@ -88,6 +103,14 @@ const ADMINISTRACION_ITEMS: NavItem[] = [
     label: "Colaboradores",
     shortLabel: "CL",
     description: "Usuarios internos",
+    permission: RBAC_PERMISSION.COLLABORATOR_MANAGE,
+  },
+  {
+    href: "/seguridad",
+    label: "Seguridad",
+    shortLabel: "SG",
+    description: "Roles y permisos",
+    permission: RBAC_PERMISSION.SECURITY_MANAGE,
   },
 ];
 
@@ -108,6 +131,10 @@ function NavSection({
   items: NavItem[];
   pathname: string;
 }) {
+  if (items.length === 0) {
+    return null;
+  }
+
   return (
     <div className="space-y-2">
       <p className="px-2 text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground">
@@ -162,9 +189,24 @@ function NavSection({
   );
 }
 
-export function AppSidebar({ usuario }: AppSidebarProps) {
+export function AppSidebar({ usuario, permissionCodes = [] }: AppSidebarProps) {
   const pathname = usePathname();
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const allowedPermissions = useMemo(
+    () => new Set(permissionCodes),
+    [permissionCodes],
+  );
+
+  const visibleOperacionItems = OPERACION_ITEMS.filter((item) =>
+    allowedPermissions.has(item.permission),
+  );
+  const visibleParametrizacionItems = PARAMETRIZACION_ITEMS.filter((item) =>
+    allowedPermissions.has(item.permission),
+  );
+  const visibleAdministracionItems = ADMINISTRACION_ITEMS.filter((item) =>
+    allowedPermissions.has(item.permission),
+  );
 
   const nombreCompleto = usuario?.nombreCompleto ?? "Usuario";
   const username = usuario?.username ?? "sin-usuario";
@@ -177,8 +219,8 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
 
       window.location.href = "/login";
     } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-      toast.error("No se pudo cerrar la sesión. Intenta nuevamente.");
+      console.error("Error al cerrar sesion:", error);
+      toast.error("No se pudo cerrar la sesion. Intenta nuevamente.");
       setIsSigningOut(false);
     }
   }
@@ -197,7 +239,7 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
                 Cuotas Moderadoras
               </p>
               <p className="truncate text-[0.82rem] text-muted-foreground">
-                Operación diaria
+                Operacion diaria
               </p>
             </div>
           </div>
@@ -213,15 +255,19 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
         </div>
 
         <div className="mt-4 flex-1 space-y-4 overflow-y-auto pr-1">
-          <NavSection title="Operación" items={OPERACION_ITEMS} pathname={pathname} />
           <NavSection
-            title="Parametrización"
-            items={PARAMETRIZACION_ITEMS}
+            title="Operacion"
+            items={visibleOperacionItems}
             pathname={pathname}
           />
           <NavSection
-            title="Administración"
-            items={ADMINISTRACION_ITEMS}
+            title="Parametrizacion"
+            items={visibleParametrizacionItems}
+            pathname={pathname}
+          />
+          <NavSection
+            title="Administracion"
+            items={visibleAdministracionItems}
             pathname={pathname}
           />
         </div>
@@ -243,12 +289,12 @@ export function AppSidebar({ usuario }: AppSidebarProps) {
             {isSigningOut ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Cerrando sesión...
+                Cerrando sesion...
               </>
             ) : (
               <>
                 <LogOut className="h-4 w-4" />
-                Cerrar sesión
+                Cerrar sesion
               </>
             )}
           </button>

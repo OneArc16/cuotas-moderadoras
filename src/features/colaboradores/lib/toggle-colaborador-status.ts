@@ -4,12 +4,17 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 const toggleColaboradorStatusSchema = z.object({
   id: z.coerce.number().int().positive("Colaborador inválido."),
 });
 
 export async function toggleColaboradorStatus(formData: FormData) {
+  await requirePermission(
+    RBAC_PERMISSION.COLLABORATOR_MANAGE,
+    "No tienes permiso para gestionar colaboradores.",
+  );
   const parsed = toggleColaboradorStatusSchema.safeParse({
     id: formData.get("id"),
   });

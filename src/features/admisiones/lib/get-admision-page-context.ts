@@ -1,5 +1,5 @@
-import { getCurrentUsuario } from "@/lib/current-user";
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 type AdmisionPageContext = {
   usuario: {
@@ -76,11 +76,10 @@ type ContratoAccumulator = {
 };
 
 export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
-  const usuario = await getCurrentUsuario();
-
-  if (!usuario) {
-    throw new Error("No se pudo resolver el usuario autenticado.");
-  }
+  const usuario = await requirePermission(
+    RBAC_PERMISSION.ADMISION_CREATE,
+    "No tienes permiso para acceder al flujo de admisiones.",
+  );
 
   const now = new Date();
 

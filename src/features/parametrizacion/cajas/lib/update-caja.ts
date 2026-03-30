@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 type UpdateCajaInput = {
   id: number;
@@ -9,6 +10,10 @@ type UpdateCajaInput = {
 };
 
 export async function updateCaja(input: UpdateCajaInput) {
+  await requirePermission(
+    RBAC_PERMISSION.BOX_MANAGE,
+    "No tienes permiso para gestionar cajas operativas.",
+  );
   const nombre = input.nombre.trim();
 
   if (!nombre) {

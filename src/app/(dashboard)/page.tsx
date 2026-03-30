@@ -1,12 +1,14 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 
 import { AppPageHeader } from "@/components/shared/layout/app-page-header";
+import { AccessDeniedState } from "@/components/shared/page/access-denied-state";
 import { CloseSesionOperativaButton } from "@/features/sesion-operativa/components/close-sesion-operativa-button";
 import { CajaSelector } from "@/features/sesion-operativa/components/caja-selector";
 import { getCajasDisponibles } from "@/features/sesion-operativa/lib/get-cajas-disponibles";
 import { getSesionOperativaActual } from "@/features/sesion-operativa/lib/get-sesion-operativa-actual";
 import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-CO", {
@@ -17,13 +19,37 @@ function formatMoney(value: number) {
 }
 
 export default async function DashboardPage() {
-  if (!(await getCurrentUsuario())) {
+  const usuario = await getCurrentUsuario();
+
+  if (!usuario) {
     redirect("/login");
   }
 
-  const [cajasDisponibles, sesionOperativa] = await Promise.all([
-    getCajasDisponibles(),
+  if (!hasPermission(usuario, RBAC_PERMISSION.DASHBOARD_VIEW)) {
+    return (
+      <main className="min-h-screen bg-transparent">
+        <div className="flex flex-col gap-5">
+          <AppPageHeader
+            eyebrow="Inicio operativo · Dashboard"
+            title="Seleccion de caja y control de sesion"
+            description="Desde aqui eliges la caja de trabajo y validas que tenga jornada activa antes de entrar a admisiones."
+          />
+
+          <AccessDeniedState
+            title="No tienes acceso al dashboard operativo"
+            description="Tu perfil actual no tiene permisos para consultar este tablero."
+          />
+        </div>
+      </main>
+    );
+  }
+
+  const canStartSession = hasPermission(usuario, RBAC_PERMISSION.SESSION_START);
+  const canCloseSession = hasPermission(usuario, RBAC_PERMISSION.SESSION_CLOSE);
+
+  const [sesionOperativa, cajasDisponibles] = await Promise.all([
     getSesionOperativaActual(),
+    canStartSession ? getCajasDisponibles() : Promise.resolve([]),
   ]);
 
   const jornadaCaja = sesionOperativa?.cajaId
@@ -50,17 +76,17 @@ export default async function DashboardPage() {
       <div className="flex flex-col gap-5">
         <AppPageHeader
           eyebrow="Inicio operativo · Dashboard"
-          title="Selección de caja y control de sesión"
-          description="Desde aquí eliges la caja de trabajo y validas que tenga jornada activa antes de entrar a admisiones."
+          title="Seleccion de caja y control de sesion"
+          description="Desde aqui eliges la caja de trabajo y validas que tenga jornada activa antes de entrar a admisiones."
           statusChips={
             <>
               {sesionOperativa ? (
                 <span className="rounded-full bg-primary/10 px-3 py-1.5 text-[0.72rem] font-semibold tracking-[0.04em] text-primary dark:bg-primary/15">
-                  Sesión operativa activa
+                  Sesion operativa activa
                 </span>
               ) : (
                 <span className="rounded-full bg-amber-100/90 px-3 py-1.5 text-[0.72rem] font-semibold tracking-[0.04em] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                  Sesión pendiente
+                  Sesion pendiente
                 </span>
               )}
               {jornadaCaja ? (
@@ -76,20 +102,31 @@ export default async function DashboardPage() {
           <section className="rounded-[28px] border border-border/80 bg-card/95 p-5 shadow-[0_18px_40px_-28px_color-mix(in_oklab,var(--foreground)_35%,transparent)] sm:p-6">
             <div className="flex flex-col gap-2">
               <p className="text-[0.78rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Inicio de operación
+                Inicio de operacion
               </p>
               <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-[1.65rem]">
                 Selecciona tu caja operativa
               </h2>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                Solo podrás continuar si la caja tiene una jornada abierta o
+                Solo podras continuar si la caja tiene una jornada abierta o
                 reabierta para la fecha operativa.
               </p>
             </div>
 
             <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)]">
               <div className="rounded-[24px] border border-border/70 bg-secondary/35 p-4 sm:p-5">
-                <CajaSelector cajas={cajasDisponibles} />
+                {canStartSession ? (
+                  <CajaSelector cajas={cajasDisponibles} />
+                ) : (
+                  <div className="rounded-[20px] border border-dashed border-border/70 bg-background/75 p-5">
+                    <p className="text-sm font-medium text-foreground">
+                      Tu perfil no puede iniciar sesiones operativas.
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Puedes consultar el dashboard, pero necesitas un perfil con permiso de inicio para tomar una caja.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-[24px] border border-border/70 bg-secondary/35 p-4 sm:p-5">
@@ -99,19 +136,19 @@ export default async function DashboardPage() {
                 <div className="mt-4 space-y-3">
                   <div className="rounded-[20px] border border-border/60 bg-background/85 p-4">
                     <p className="text-sm font-medium text-foreground">
-                      1. Selección de caja
+                      1. Seleccion de caja
                     </p>
                     <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                      La sesión operativa queda ligada directamente a la caja.
+                      La sesion operativa queda ligada directamente a la caja.
                     </p>
                   </div>
 
                   <div className="rounded-[20px] border border-border/60 bg-background/85 p-4">
                     <p className="text-sm font-medium text-foreground">
-                      2. Validación de jornada
+                      2. Validacion de jornada
                     </p>
                     <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                      Solo podrás entrar a cajas con jornada ABIERTA o REABIERTA.
+                      Solo podras entrar a cajas con jornada ABIERTA o REABIERTA.
                     </p>
                   </div>
 
@@ -120,7 +157,7 @@ export default async function DashboardPage() {
                       3. Continuidad operativa
                     </p>
                     <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                      Cada usuario conserva una sola sesión activa a la vez.
+                      Cada usuario conserva una sola sesion activa a la vez.
                     </p>
                   </div>
                 </div>
@@ -132,19 +169,25 @@ export default async function DashboardPage() {
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div>
                 <p className="text-[0.78rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Sesión operativa actual
+                  Sesion operativa actual
                 </p>
                 <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-[1.65rem]">
-                  Ya tienes una sesión activa
+                  Ya tienes una sesion activa
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Desde aquí puedes validar el contexto actual de trabajo y
-                  cerrar la sesión operativa cuando termines.
+                  Desde aqui puedes validar el contexto actual de trabajo y
+                  cerrar la sesion operativa cuando termines.
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <CloseSesionOperativaButton sesionId={sesionOperativa.id} />
+                {canCloseSession ? (
+                  <CloseSesionOperativaButton />
+                ) : (
+                  <span className="rounded-full bg-muted px-3 py-1.5 text-[0.72rem] font-semibold tracking-[0.04em] text-muted-foreground">
+                    Sin permiso para cerrar sesion
+                  </span>
+                )}
               </div>
             </div>
 
@@ -223,7 +266,7 @@ export default async function DashboardPage() {
                       </p>
                       <p className="mt-1 text-sm leading-5 text-muted-foreground">
                         Puedes continuar a Admisiones y registrar pacientes con
-                        esta sesión.
+                        esta sesion.
                       </p>
                     </div>
                   </div>

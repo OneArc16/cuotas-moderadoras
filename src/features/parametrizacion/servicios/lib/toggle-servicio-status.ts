@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export async function toggleServicioStatus(id: number) {
+  await requirePermission(
+    RBAC_PERMISSION.SERVICE_MANAGE,
+    "No tienes permiso para gestionar servicios.",
+  );
   const servicio = await prisma.servicio.findUnique({
     where: { id },
     select: {

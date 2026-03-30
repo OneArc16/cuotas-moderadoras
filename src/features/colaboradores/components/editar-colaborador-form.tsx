@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 
+import { RoleSummaryCard } from "@/features/colaboradores/components/role-summary-card";
 import {
   updateColaborador,
   type UpdateColaboradorActionState,
@@ -14,6 +15,10 @@ import {
 type RolOption = {
   id: number;
   nombre: string;
+  descripcion: string | null;
+  estado: "ACTIVO" | "INACTIVO";
+  permissionCount: number;
+  usersCount: number;
 };
 
 type ColaboradorFormData = {
@@ -72,6 +77,12 @@ export function EditarColaboradorForm({
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState(updateColaborador, initialState);
+  const [selectedRoleId, setSelectedRoleId] = useState(String(colaborador.rolId));
+
+  const selectedRole = useMemo(
+    () => roles.find((role) => String(role.id) === selectedRoleId) ?? null,
+    [roles, selectedRoleId],
+  );
 
   useEffect(() => {
     if (!state.message) return;
@@ -104,8 +115,8 @@ export function EditarColaboradorForm({
             defaultValue={colaborador.tipoDocumento}
             className="h-11 w-full rounded-2xl border bg-background px-4 text-sm outline-none transition focus:border-foreground"
           >
-            <option value="CC">Cédula de ciudadanía</option>
-            <option value="CE">Cédula de extranjería</option>
+            <option value="CC">Cedula de ciudadania</option>
+            <option value="CE">Cedula de extranjeria</option>
             <option value="TI">Tarjeta de identidad</option>
             <option value="RC">Registro civil</option>
             <option value="PASAPORTE">Pasaporte</option>
@@ -120,7 +131,7 @@ export function EditarColaboradorForm({
             htmlFor="numeroDocumento"
             className="text-sm font-medium text-foreground"
           >
-            Número de documento
+            Numero de documento
           </label>
           <input
             id="numeroDocumento"
@@ -210,7 +221,7 @@ export function EditarColaboradorForm({
             htmlFor="telefono"
             className="text-sm font-medium text-foreground"
           >
-            Teléfono
+            Telefono
           </label>
           <input
             id="telefono"
@@ -224,10 +235,7 @@ export function EditarColaboradorForm({
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="email"
-            className="text-sm font-medium text-foreground"
-          >
+          <label htmlFor="email" className="text-sm font-medium text-foreground">
             Correo
           </label>
           <input
@@ -257,17 +265,15 @@ export function EditarColaboradorForm({
           <FieldError error={state.errors?.username} />
         </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="rolId"
-            className="text-sm font-medium text-foreground"
-          >
-            Rol
+        <div className="space-y-2 md:col-span-2">
+          <label htmlFor="rolId" className="text-sm font-medium text-foreground">
+            Perfil
           </label>
           <select
             id="rolId"
             name="rolId"
-            defaultValue={String(colaborador.rolId)}
+            value={selectedRoleId}
+            onChange={(event) => setSelectedRoleId(event.target.value)}
             className="h-11 w-full rounded-2xl border bg-background px-4 text-sm outline-none transition focus:border-foreground"
           >
             {roles.map((rol) => (
@@ -277,6 +283,7 @@ export function EditarColaboradorForm({
             ))}
           </select>
           <FieldError error={state.errors?.rolId} />
+          <RoleSummaryCard role={selectedRole} />
         </div>
 
         <div className="space-y-2">
@@ -303,8 +310,8 @@ export function EditarColaboradorForm({
       </div>
 
       <div className="rounded-2xl border bg-muted/20 p-4 text-sm text-muted-foreground">
-        Aquí editas datos generales, rol y estado. La contraseña la dejamos para
-        el siguiente ajuste.
+        Aqui editas datos generales, perfil y estado. La contrasena se gestiona
+        en el bloque de seguridad inferior.
       </div>
 
       <div className="flex flex-col gap-3 border-t pt-6 sm:flex-row sm:justify-end">

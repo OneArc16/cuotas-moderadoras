@@ -12,6 +12,10 @@ type CreateModuloAtencionInput = {
 export async function createModuloAtencion(
   input: CreateModuloAtencionInput
 ) {
+  await requirePermission(
+    RBAC_PERMISSION.BOX_MANAGE,
+    "No tienes permiso para gestionar estructuras fisicas legadas.",
+  );
   const codigo = input.codigo.trim();
   const nombre = input.nombre.trim();
 

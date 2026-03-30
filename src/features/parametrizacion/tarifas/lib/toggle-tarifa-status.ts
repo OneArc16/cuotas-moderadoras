@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export async function toggleTarifaStatus(id: number) {
+  await requirePermission(
+    RBAC_PERMISSION.TARIFF_MANAGE,
+    "No tienes permiso para gestionar tarifas.",
+  );
   const tarifa = await prisma.tarifaServicio.findUnique({
     where: { id },
     select: {

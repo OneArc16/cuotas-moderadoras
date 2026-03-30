@@ -9,6 +9,10 @@ type CreateServicioInput = {
 };
 
 export async function createServicio(input: CreateServicioInput) {
+  await requirePermission(
+    RBAC_PERMISSION.SERVICE_MANAGE,
+    "No tienes permiso para gestionar servicios.",
+  );
   const codigo = input.codigo?.trim() || null;
   const nombre = input.nombre.trim();
 

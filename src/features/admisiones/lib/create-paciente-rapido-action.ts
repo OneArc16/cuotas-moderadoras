@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 import {
   findPacienteByDocumento,
   TIPO_DOCUMENTO_VALUES,
@@ -12,13 +13,13 @@ import {
 
 const createPacienteRapidoSchema = z.object({
   tipoDocumento: z.enum(TIPO_DOCUMENTO_VALUES, {
-    message: "Selecciona un tipo de documento válido.",
+    message: "Selecciona un tipo de documento valido.",
   }),
   numeroDocumento: z
     .string()
     .trim()
-    .min(4, "El número de documento debe tener al menos 4 caracteres.")
-    .max(30, "El número de documento es demasiado largo."),
+    .min(4, "El numero de documento debe tener al menos 4 caracteres.")
+    .max(30, "El numero de documento es demasiado largo."),
   primerNombre: z
     .string()
     .trim()
@@ -44,7 +45,7 @@ const createPacienteRapidoSchema = z.object({
   telefono: z
     .string()
     .trim()
-    .max(30, "El teléfono es demasiado largo.")
+    .max(30, "El telefono es demasiado largo.")
     .optional()
     .or(z.literal("")),
 });
@@ -86,7 +87,14 @@ export async function createPacienteRapidoAction(
   if (!currentUser) {
     return {
       ok: false,
-      message: "No se pudo validar la sesión actual.",
+      message: "No se pudo validar la sesion actual.",
+    };
+  }
+
+  if (!hasPermission(currentUser, RBAC_PERMISSION.PATIENT_CREATE)) {
+    return {
+      ok: false,
+      message: "No tienes permiso para registrar pacientes.",
     };
   }
 
@@ -97,7 +105,7 @@ export async function createPacienteRapidoAction(
 
     return {
       ok: false,
-      message: "Corrige los datos del paciente e inténtalo de nuevo.",
+      message: "Corrige los datos del paciente e intentalo de nuevo.",
       fieldErrors: {
         tipoDocumento: flattened.fieldErrors.tipoDocumento,
         numeroDocumento: flattened.fieldErrors.numeroDocumento,

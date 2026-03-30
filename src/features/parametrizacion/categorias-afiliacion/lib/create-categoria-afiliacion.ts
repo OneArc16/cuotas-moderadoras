@@ -11,6 +11,10 @@ type CreateCategoriaAfiliacionInput = {
 export async function createCategoriaAfiliacion(
   input: CreateCategoriaAfiliacionInput
 ) {
+  await requirePermission(
+    RBAC_PERMISSION.CATEGORY_MANAGE,
+    "No tienes permiso para gestionar categorias de afiliacion.",
+  );
   const codigo = input.codigo.trim();
   const nombre = input.nombre.trim();
 

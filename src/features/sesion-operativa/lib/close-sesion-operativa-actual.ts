@@ -1,11 +1,15 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
-import { getCurrentUsuario } from "@/lib/current-user";
+import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 export async function closeSesionOperativaActual() {
-  const usuario = await getCurrentUsuario();
+  const usuario = await requirePermission(
+    RBAC_PERMISSION.SESSION_CLOSE,
+    "No tienes permiso para cerrar sesiones operativas.",
+  );
 
   const sesionActiva = await prisma.sesionOperativa.findFirst({
     where: {
@@ -21,7 +25,7 @@ export async function closeSesionOperativaActual() {
   });
 
   if (!sesionActiva) {
-    throw new Error("No tienes una sesión operativa activa");
+    throw new Error("No tienes una sesion operativa activa");
   }
 
   await prisma.sesionOperativa.update({

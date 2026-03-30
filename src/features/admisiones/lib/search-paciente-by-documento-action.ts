@@ -1,8 +1,9 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 import {
   findPacienteByDocumento,
   TIPO_DOCUMENTO_VALUES,
@@ -11,13 +12,13 @@ import {
 
 const searchPacienteByDocumentoSchema = z.object({
   tipoDocumento: z.enum(TIPO_DOCUMENTO_VALUES, {
-    message: "Selecciona un tipo de documento válido.",
+    message: "Selecciona un tipo de documento valido.",
   }),
   numeroDocumento: z
     .string()
     .trim()
-    .min(4, "El número de documento debe tener al menos 4 caracteres.")
-    .max(30, "El número de documento es demasiado largo."),
+    .min(4, "El numero de documento debe tener al menos 4 caracteres.")
+    .max(30, "El numero de documento es demasiado largo."),
 });
 
 export type SearchPacienteByDocumentoResult =
@@ -43,7 +44,14 @@ export async function searchPacienteByDocumentoAction(
   if (!currentUser) {
     return {
       ok: false,
-      message: "No se pudo validar la sesión actual.",
+      message: "No se pudo validar la sesion actual.",
+    };
+  }
+
+  if (!hasPermission(currentUser, RBAC_PERMISSION.ADMISION_CREATE)) {
+    return {
+      ok: false,
+      message: "No tienes permiso para preparar una admision.",
     };
   }
 
@@ -54,7 +62,7 @@ export async function searchPacienteByDocumentoAction(
 
     return {
       ok: false,
-      message: "Corrige los datos de búsqueda e inténtalo de nuevo.",
+      message: "Corrige los datos de busqueda e intentalo de nuevo.",
       fieldErrors: {
         tipoDocumento: flattened.fieldErrors.tipoDocumento,
         numeroDocumento: flattened.fieldErrors.numeroDocumento,

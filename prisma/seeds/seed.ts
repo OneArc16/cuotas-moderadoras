@@ -4,6 +4,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../generated/prisma/client";
 
 import { auth } from "../../src/lib/auth";
+import {
+  syncBasePermissions,
+  syncBaseRolePermissions,
+  syncBaseRoles,
+} from "../../src/lib/rbac/sync-base-rbac";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -21,45 +26,19 @@ function normalizeLoginUsername(value: string) {
 }
 
 async function main() {
-  const roles = [
-    {
-      nombre: "SUPERADMINISTRADOR",
-      descripcion: "Control total del sistema",
-    },
-    {
-      nombre: "ADMINISTRADOR",
-      descripcion: "Gestión operativa y administrativa",
-    },
-    {
-      nombre: "ADMISIONISTA",
-      descripcion: "Registro de admisiones y operación de caja",
-    },
-    {
-      nombre: "AUDITOR",
-      descripcion: "Consulta y revisión de información",
-    },
-    {
-      nombre: "GERENCIA",
-      descripcion: "Consulta ejecutiva y reportes",
-    },
-  ];
+  const rolesByName = await syncBaseRoles(prisma, {
+    reactivateExistingRoles: true,
+  });
+  const permissionsByCode = await syncBasePermissions(prisma);
 
-  for (const role of roles) {
-    await prisma.rol.upsert({
-      where: { nombre: role.nombre },
-      update: {
-        descripcion: role.descripcion,
-      },
-      create: role,
-    });
-  }
-
-  const adminRole = await prisma.rol.findUnique({
-    where: { nombre: "SUPERADMINISTRADOR" },
+  await syncBaseRolePermissions(prisma, rolesByName, permissionsByCode, {
+    resetToMatrix: true,
   });
 
+  const adminRole = rolesByName.get("SUPERADMINISTRADOR");
+
   if (!adminRole) {
-    throw new Error("No se encontró el rol SUPERADMINISTRADOR");
+    throw new Error("No se encontro el rol SUPERADMINISTRADOR");
   }
 
   const adminName = "Administrador Principal";
@@ -157,7 +136,7 @@ async function main() {
   console.log("Seed inicial completado");
   console.log("Auth user id:", authUser.id);
   console.log("Usuario:", adminUsername);
-  console.log("Contraseña:", adminPassword);
+  console.log("Contrasena:", adminPassword);
   console.log("Rol Better Auth:", "admin");
   console.log("Rol interno:", adminRole.nombre);
 }

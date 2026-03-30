@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export async function toggleCategoriaAfiliacionStatus(id: number) {
+  await requirePermission(
+    RBAC_PERMISSION.CATEGORY_MANAGE,
+    "No tienes permiso para gestionar categorias de afiliacion.",
+  );
   const categoria = await prisma.categoriaAfiliacion.findUnique({
     where: { id },
     select: {

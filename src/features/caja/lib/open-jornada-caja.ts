@@ -1,20 +1,21 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
 import { getBogotaOperationalDayRange } from "@/lib/fecha-operativa-bogota";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 const openJornadaCajaSchema = z.object({
-  cajaId: z.coerce.number().int().positive("Caja inválida."),
+  cajaId: z.coerce.number().int().positive("Caja invalida."),
   baseInicial: z.coerce
     .number()
     .min(0, "La base inicial no puede ser negativa."),
   observacionApertura: z
     .string()
     .trim()
-    .max(500, "La observación es demasiado larga.")
+    .max(500, "La observacion es demasiado larga.")
     .optional()
     .or(z.literal("")),
 });
@@ -48,7 +49,7 @@ export async function openJornadaCaja(
 
     return {
       ok: false,
-      message: "Corrige los datos de apertura e inténtalo de nuevo.",
+      message: "Corrige los datos de apertura e intentalo de nuevo.",
       fieldErrors: {
         cajaId: flattened.fieldErrors.cajaId,
         baseInicial: flattened.fieldErrors.baseInicial,
@@ -62,7 +63,14 @@ export async function openJornadaCaja(
   if (!usuario) {
     return {
       ok: false,
-      message: "No se pudo validar la sesión actual.",
+      message: "No se pudo validar la sesion actual.",
+    };
+  }
+
+  if (!hasPermission(usuario, RBAC_PERMISSION.CAJA_OPEN)) {
+    return {
+      ok: false,
+      message: "No tienes permiso para abrir jornadas de caja.",
     };
   }
 
@@ -80,9 +88,9 @@ export async function openJornadaCaja(
   if (!caja || caja.estado !== "ACTIVO") {
     return {
       ok: false,
-      message: "La caja seleccionada no está disponible.",
+      message: "La caja seleccionada no esta disponible.",
       fieldErrors: {
-        cajaId: ["La caja seleccionada no está disponible."],
+        cajaId: ["La caja seleccionada no esta disponible."],
       },
     };
   }
@@ -113,7 +121,7 @@ export async function openJornadaCaja(
     return {
       ok: false,
       message:
-        "Esta caja ya tuvo jornada hoy. La acción correcta es reabrir la jornada, no volver a abrir una nueva.",
+        "Esta caja ya tuvo jornada hoy. La accion correcta es reabrir la jornada, no volver a abrir una nueva.",
     };
   }
 

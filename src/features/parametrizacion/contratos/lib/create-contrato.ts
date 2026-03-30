@@ -9,6 +9,10 @@ type CreateContratoInput = {
 };
 
 export async function createContrato(input: CreateContratoInput) {
+  await requirePermission(
+    RBAC_PERMISSION.CONTRACT_MANAGE,
+    "No tienes permiso para gestionar contratos.",
+  );
   const nombre = input.nombre.trim();
 
   if (!nombre) {

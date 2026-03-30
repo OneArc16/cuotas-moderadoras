@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export async function togglePisoStatus(id: number) {
+  await requirePermission(
+    RBAC_PERMISSION.BOX_MANAGE,
+    "No tienes permiso para gestionar estructuras fisicas legadas.",
+  );
   const piso = await prisma.piso.findUnique({
     where: { id },
     select: {

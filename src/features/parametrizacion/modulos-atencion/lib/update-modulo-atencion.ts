@@ -13,6 +13,10 @@ type UpdateModuloAtencionInput = {
 export async function updateModuloAtencion(
   input: UpdateModuloAtencionInput
 ) {
+  await requirePermission(
+    RBAC_PERMISSION.BOX_MANAGE,
+    "No tienes permiso para gestionar estructuras fisicas legadas.",
+  );
   const codigo = input.codigo.trim();
   const nombre = input.nombre.trim();
 

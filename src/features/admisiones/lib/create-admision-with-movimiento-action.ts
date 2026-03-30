@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 import { getTarifaVigente } from "@/features/admisiones/lib/get-tarifa-vigente";
 
 const METODO_PAGO_VALUES = [
@@ -16,9 +17,9 @@ const METODO_PAGO_VALUES = [
 ] as const;
 
 const createAdmisionSchema = z.object({
-  pacienteId: z.coerce.number().int().positive("Paciente inválido."),
-  contratoId: z.coerce.number().int().positive("Contrato inválido."),
-  servicioId: z.coerce.number().int().positive("Servicio inválido."),
+  pacienteId: z.coerce.number().int().positive("Paciente invalido."),
+  contratoId: z.coerce.number().int().positive("Contrato invalido."),
+  servicioId: z.coerce.number().int().positive("Servicio invalido."),
   categoriaAfiliacionId: z.coerce
     .number()
     .int()
@@ -35,7 +36,7 @@ const createAdmisionSchema = z.object({
     .number()
     .min(0, "El valor recibido no puede ser negativo."),
   metodoPago: z.enum(METODO_PAGO_VALUES, {
-    message: "Selecciona un método de pago válido.",
+    message: "Selecciona un metodo de pago valido.",
   }),
   referenciaPago: z
     .string()
@@ -46,13 +47,13 @@ const createAdmisionSchema = z.object({
   observacion: z
     .string()
     .trim()
-    .max(500, "La observación es demasiado larga.")
+    .max(500, "La observacion es demasiado larga.")
     .optional()
     .or(z.literal("")),
   razonDescuento: z
     .string()
     .trim()
-    .max(250, "La razón del descuento es demasiado larga.")
+    .max(250, "La razon del descuento es demasiado larga.")
     .optional()
     .or(z.literal("")),
 });
@@ -144,7 +145,7 @@ function parseDescuentoInput(rawValue: string | undefined) {
   if (Number.isNaN(valorFijo) || valorFijo < 0) {
     return {
       error:
-        "El descuento debe ser un valor fijo o un porcentaje válido. Ejemplo: 5000 o 10%.",
+        "El descuento debe ser un valor fijo o un porcentaje valido. Ejemplo: 5000 o 10%.",
     } as const;
   }
 
@@ -163,7 +164,14 @@ export async function createAdmisionWithMovimientoAction(
   if (!currentUser) {
     return {
       ok: false,
-      message: "No se pudo validar la sesión actual.",
+      message: "No se pudo validar la sesion actual.",
+    };
+  }
+
+  if (!hasPermission(currentUser, RBAC_PERMISSION.ADMISION_CREATE)) {
+    return {
+      ok: false,
+      message: "No tienes permiso para registrar admisiones.",
     };
   }
 
@@ -174,7 +182,7 @@ export async function createAdmisionWithMovimientoAction(
 
     return {
       ok: false,
-      message: "Corrige los datos de la admisión e inténtalo de nuevo.",
+      message: "Corrige los datos de la admision e intentalo de nuevo.",
       fieldErrors: {
         pacienteId: flattened.fieldErrors.pacienteId,
         contratoId: flattened.fieldErrors.contratoId,
@@ -211,7 +219,7 @@ export async function createAdmisionWithMovimientoAction(
   if (!sesionOperativa) {
     return {
       ok: false,
-      message: "No hay una sesión operativa activa para registrar la admisión.",
+      message: "No hay una sesion operativa activa para registrar la admision.",
     };
   }
 
@@ -293,9 +301,9 @@ export async function createAdmisionWithMovimientoAction(
   if (!contrato || contrato.estado !== "ACTIVO") {
     return {
       ok: false,
-      message: "El contrato seleccionado no está disponible.",
+      message: "El contrato seleccionado no esta disponible.",
       fieldErrors: {
-        contratoId: ["El contrato seleccionado no está disponible."],
+        contratoId: ["El contrato seleccionado no esta disponible."],
       },
     };
   }
@@ -303,9 +311,9 @@ export async function createAdmisionWithMovimientoAction(
   if (!servicio || servicio.estado !== "ACTIVO") {
     return {
       ok: false,
-      message: "El servicio seleccionado no está disponible.",
+      message: "El servicio seleccionado no esta disponible.",
       fieldErrors: {
-        servicioId: ["El servicio seleccionado no está disponible."],
+        servicioId: ["El servicio seleccionado no esta disponible."],
       },
     };
   }
@@ -313,10 +321,10 @@ export async function createAdmisionWithMovimientoAction(
   if (contrato.tipo !== "PARTICULAR" && !data.categoriaAfiliacionId) {
     return {
       ok: false,
-      message: "Debes seleccionar una categoría para este contrato.",
+      message: "Debes seleccionar una categoria para este contrato.",
       fieldErrors: {
         categoriaAfiliacionId: [
-          "Debes seleccionar una categoría para este contrato.",
+          "Debes seleccionar una categoria para este contrato.",
         ],
       },
     };
@@ -325,10 +333,10 @@ export async function createAdmisionWithMovimientoAction(
   if (contrato.tipo === "PARTICULAR" && data.categoriaAfiliacionId) {
     return {
       ok: false,
-      message: "Los contratos particulares no usan categoría para el cobro.",
+      message: "Los contratos particulares no usan categoria para el cobro.",
       fieldErrors: {
         categoriaAfiliacionId: [
-          "Los contratos particulares no usan categoría para el cobro.",
+          "Los contratos particulares no usan categoria para el cobro.",
         ],
       },
     };
@@ -338,9 +346,9 @@ export async function createAdmisionWithMovimientoAction(
     if (!categoriaAfiliacion || categoriaAfiliacion.estado !== "ACTIVO") {
       return {
         ok: false,
-        message: "La categoría seleccionada no está disponible.",
+        message: "La categoria seleccionada no esta disponible.",
         fieldErrors: {
-          categoriaAfiliacionId: ["La categoría seleccionada no está disponible."],
+          categoriaAfiliacionId: ["La categoria seleccionada no esta disponible."],
         },
       };
     }
@@ -359,10 +367,10 @@ export async function createAdmisionWithMovimientoAction(
     if (!categoriaHabilitada) {
       return {
         ok: false,
-        message: "La categoría no está habilitada para este contrato.",
+        message: "La categoria no esta habilitada para este contrato.",
         fieldErrors: {
           categoriaAfiliacionId: [
-            "La categoría no está habilitada para este contrato.",
+            "La categoria no esta habilitada para este contrato.",
           ],
         },
       };
@@ -378,7 +386,7 @@ export async function createAdmisionWithMovimientoAction(
   if (!tarifa) {
     return {
       ok: false,
-      message: "No existe una tarifa vigente para la selección actual.",
+      message: "No existe una tarifa vigente para la seleccion actual.",
     };
   }
 
@@ -491,7 +499,7 @@ export async function createAdmisionWithMovimientoAction(
         valor: toMoneyString(valorFinalCobrado),
         metodoPago: data.metodoPago,
         referenciaPago,
-        descripcion: `Cobro admisión ${servicio.nombre}`,
+        descripcion: `Cobro admision ${servicio.nombre}`,
         referencia: `ADM-${admision.id}`,
       },
       select: {

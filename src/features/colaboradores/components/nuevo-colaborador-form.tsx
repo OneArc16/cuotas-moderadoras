@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 
+import { RoleSummaryCard } from "@/features/colaboradores/components/role-summary-card";
 import {
   createColaborador,
   type CreateColaboradorActionState,
@@ -14,6 +15,10 @@ import {
 type RolOption = {
   id: number;
   nombre: string;
+  descripcion: string | null;
+  estado: "ACTIVO" | "INACTIVO";
+  permissionCount: number;
+  usersCount: number;
 };
 
 const ESTADOS = ["ACTIVO", "INACTIVO", "BLOQUEADO"] as const;
@@ -51,6 +56,12 @@ function FieldError({ error }: { error?: string[] }) {
 export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
   const router = useRouter();
   const [state, formAction] = useActionState(createColaborador, initialState);
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+
+  const selectedRole = useMemo(
+    () => roles.find((role) => String(role.id) === selectedRoleId) ?? null,
+    [roles, selectedRoleId],
+  );
 
   useEffect(() => {
     if (!state.message) return;
@@ -81,8 +92,8 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
             defaultValue="CC"
             className="h-11 w-full rounded-2xl border bg-background px-4 text-sm outline-none transition focus:border-foreground"
           >
-            <option value="CC">Cédula de ciudadanía</option>
-            <option value="CE">Cédula de extranjería</option>
+            <option value="CC">Cedula de ciudadania</option>
+            <option value="CE">Cedula de extranjeria</option>
             <option value="TI">Tarjeta de identidad</option>
             <option value="RC">Registro civil</option>
             <option value="PASAPORTE">Pasaporte</option>
@@ -97,13 +108,13 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
             htmlFor="numeroDocumento"
             className="text-sm font-medium text-foreground"
           >
-            Número de documento
+            Numero de documento
           </label>
           <input
             id="numeroDocumento"
             name="numeroDocumento"
             type="text"
-            placeholder="Número de documento"
+            placeholder="Numero de documento"
             onInput={forceUppercase}
             className="h-11 w-full rounded-2xl border bg-background px-4 text-sm outline-none transition placeholder:text-muted-foreground focus:border-foreground"
           />
@@ -187,7 +198,7 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
             htmlFor="telefono"
             className="text-sm font-medium text-foreground"
           >
-            Teléfono
+            Telefono
           </label>
           <input
             id="telefono"
@@ -201,20 +212,17 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
         </div>
 
         <div className="space-y-2">
-            <label
-              htmlFor="email"
-              className="text-sm font-medium text-foreground"
-            >
-              Correo
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              placeholder="correo@dominio.com"
-              className="h-11 w-full rounded-2xl border bg-background px-4 text-sm outline-none transition placeholder:text-muted-foreground focus:border-foreground"
-            />
+          <label htmlFor="email" className="text-sm font-medium text-foreground">
+            Correo
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            placeholder="correo@dominio.com"
+            className="h-11 w-full rounded-2xl border bg-background px-4 text-sm outline-none transition placeholder:text-muted-foreground focus:border-foreground"
+          />
           <FieldError error={state.errors?.email} />
         </div>
 
@@ -235,21 +243,19 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
           <FieldError error={state.errors?.username} />
         </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="rolId"
-            className="text-sm font-medium text-foreground"
-          >
-            Rol
+        <div className="space-y-2 md:col-span-2">
+          <label htmlFor="rolId" className="text-sm font-medium text-foreground">
+            Perfil
           </label>
           <select
             id="rolId"
             name="rolId"
-            defaultValue=""
+            value={selectedRoleId}
+            onChange={(event) => setSelectedRoleId(event.target.value)}
             className="h-11 w-full rounded-2xl border bg-background px-4 text-sm outline-none transition focus:border-foreground"
           >
             <option value="" disabled>
-              Seleccionar rol
+              Seleccionar perfil
             </option>
             {roles.map((rol) => (
               <option key={rol.id} value={rol.id}>
@@ -258,6 +264,7 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
             ))}
           </select>
           <FieldError error={state.errors?.rolId} />
+          <RoleSummaryCard role={selectedRole} />
         </div>
 
         <div className="space-y-2">
@@ -287,7 +294,7 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
             htmlFor="password"
             className="text-sm font-medium text-foreground"
           >
-            Contraseña temporal
+            Contrasena temporal
           </label>
           <input
             id="password"
@@ -301,8 +308,8 @@ export function NuevoColaboradorForm({ roles }: { roles: RolOption[] }) {
       </div>
 
       <div className="rounded-2xl border bg-muted/20 p-4 text-sm text-muted-foreground">
-        Al guardar, el colaborador quedará creado en la base de datos y el
-        listado se actualizará automáticamente.
+        Al guardar, el colaborador quedara creado en la base de datos y el
+        listado se actualizara automaticamente.
       </div>
 
       <div className="flex flex-col gap-3 border-t pt-6 sm:flex-row sm:justify-end">

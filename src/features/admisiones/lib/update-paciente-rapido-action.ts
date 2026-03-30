@@ -1,13 +1,14 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 
 import { getCurrentUsuario } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
 import type { PacienteLookupResult } from "@/features/admisiones/lib/find-paciente-by-documento";
 
 const updatePacienteRapidoSchema = z.object({
-  pacienteId: z.coerce.number().int().positive("Paciente inválido."),
+  pacienteId: z.coerce.number().int().positive("Paciente invalido."),
   primerNombre: z
     .string()
     .trim()
@@ -33,7 +34,7 @@ const updatePacienteRapidoSchema = z.object({
   telefono: z
     .string()
     .trim()
-    .max(30, "El teléfono es demasiado largo.")
+    .max(30, "El telefono es demasiado largo.")
     .optional()
     .or(z.literal("")),
 });
@@ -90,7 +91,14 @@ export async function updatePacienteRapidoAction(
   if (!currentUser) {
     return {
       ok: false,
-      message: "No se pudo validar la sesión actual.",
+      message: "No se pudo validar la sesion actual.",
+    };
+  }
+
+  if (!hasPermission(currentUser, RBAC_PERMISSION.PATIENT_UPDATE)) {
+    return {
+      ok: false,
+      message: "No tienes permiso para actualizar pacientes.",
     };
   }
 
@@ -101,7 +109,7 @@ export async function updatePacienteRapidoAction(
 
     return {
       ok: false,
-      message: "Corrige los datos del paciente e inténtalo de nuevo.",
+      message: "Corrige los datos del paciente e intentalo de nuevo.",
       fieldErrors: {
         pacienteId: flattened.fieldErrors.pacienteId,
         primerNombre: flattened.fieldErrors.primerNombre,
