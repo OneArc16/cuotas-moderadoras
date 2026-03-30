@@ -1,3 +1,4 @@
+import { Download } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { AppPageHeader } from "@/components/shared/layout/app-page-header";
@@ -40,6 +41,23 @@ function formatMetodoPago(value: string) {
   }
 }
 
+function buildExportHref(params: {
+  desde: string;
+  hasta: string;
+  cajaId: string;
+}) {
+  const searchParams = new URLSearchParams({
+    desde: params.desde,
+    hasta: params.hasta,
+  });
+
+  if (params.cajaId) {
+    searchParams.set("cajaId", params.cajaId);
+  }
+
+  return `/api/reportes/export?${searchParams.toString()}`;
+}
+
 export default async function ReportesPage({
   searchParams,
 }: {
@@ -60,7 +78,7 @@ export default async function ReportesPage({
       <main className="min-h-screen bg-transparent">
         <div className="flex flex-col gap-5">
           <AppPageHeader
-            eyebrow="Operacion diaria · Reportes"
+            eyebrow="Operacion diaria - Reportes"
             title="Reportes operativos"
             description="Consulta el comportamiento diario de caja, admisiones y recaudo con filtros por fecha operativa y caja."
           />
@@ -79,12 +97,17 @@ export default async function ReportesPage({
   const selectedCaja = data.filters.cajaId
     ? data.cajas.find((caja) => String(caja.id) === data.filters.cajaId)
     : null;
+  const exportHref = buildExportHref({
+    desde: data.filters.desde,
+    hasta: data.filters.hasta,
+    cajaId: data.filters.cajaId,
+  });
 
   return (
     <main className="min-h-screen bg-transparent">
       <div className="flex flex-col gap-5">
         <AppPageHeader
-          eyebrow="Operacion diaria · Reportes"
+          eyebrow="Operacion diaria - Reportes"
           title="Reportes operativos"
           description="Consulta el comportamiento diario de caja, admisiones y recaudo con filtros por fecha operativa y caja."
           statusChips={
@@ -122,16 +145,26 @@ export default async function ReportesPage({
         />
 
         <section className="rounded-[28px] border border-border/80 bg-card/95 p-5 shadow-[0_18px_40px_-28px_color-mix(in_oklab,var(--foreground)_35%,transparent)] sm:p-6">
-          <div className="flex flex-col gap-2">
-            <p className="text-[0.78rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Filtros del reporte
-            </p>
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-[1.65rem]">
-              Corte por fecha operativa y caja
-            </h2>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Usa estos filtros para revisar el comportamiento del recaudo, las admisiones y las anulaciones sobre la operacion real.
-            </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-2">
+              <p className="text-[0.78rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Filtros del reporte
+              </p>
+              <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-[1.65rem]">
+                Corte por fecha operativa y caja
+              </h2>
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                Usa estos filtros para revisar el comportamiento del recaudo, las admisiones y las anulaciones sobre la operacion real.
+              </p>
+            </div>
+
+            <a
+              href={exportHref}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+            >
+              <Download className="h-4 w-4" />
+              Exportar Excel
+            </a>
           </div>
 
           <div className="mt-5">
@@ -322,7 +355,7 @@ export default async function ReportesPage({
                       </div>
                       <p className="text-base font-semibold text-foreground">{formatCurrency(item.neto)}</p>
                     </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3 text-sm text-muted-foreground">
+                    <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
                       <p>Admisiones: <span className="font-medium text-foreground">{item.admisiones}</span></p>
                       <p>Anuladas: <span className="font-medium text-foreground">{item.anuladas}</span></p>
                       <p>Recaudado: <span className="font-medium text-foreground">{formatCurrency(item.recaudado)}</span></p>
