@@ -1,13 +1,20 @@
 "use server";
 
+import { isAPIError } from "better-auth/api";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { isAPIError } from "better-auth/api";
 import { z } from "zod";
 
+import { createAuditEntry } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
+
+import {
+  buildColaboradorAuditSnapshot,
+  getColaboradorDisplayName,
+} from "./colaborador-audit";
+import { normalizeLoginUsername } from "./normalize-login-username";
 
 const createColaboradorSchema = z.object({
   tipoDocumento: z.enum(["CC", "CE", "TI", "RC", "PASAPORTE", "NIT", "OTRO"]),
@@ -21,23 +28,14 @@ const createColaboradorSchema = z.object({
     .string()
     .trim()
     .min(1, "El correo es obligatorio.")
-    .email("El correo no es válido."),
+    .email("El correo no es valido."),
   username: z.string().trim().min(3, "El username es obligatorio."),
   rolId: z.coerce.number().int().positive("Debes seleccionar un rol."),
   estado: z.enum(["ACTIVO", "INACTIVO", "BLOQUEADO"]),
   password: z
     .string()
-    .min(6, "La contraseña temporal debe tener al menos 6 caracteres."),
+    .min(6, "La contrasena temporal debe tener al menos 6 caracteres."),
 });
-
-function normalizeLoginUsername(value: string) {
-  return value
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._]/g, "")
-    .toLowerCase();
-}
 
 export type CreateColaboradorActionState = {
   success: boolean;
@@ -49,10 +47,11 @@ export async function createColaborador(
   _prevState: CreateColaboradorActionState,
   formData: FormData,
 ): Promise<CreateColaboradorActionState> {
-  await requirePermission(
+  const actor = await requirePermission(
     RBAC_PERMISSION.COLLABORATOR_MANAGE,
     "No tienes permiso para gestionar colaboradores.",
   );
+
   const parsed = createColaboradorSchema.safeParse({
     tipoDocumento: formData.get("tipoDocumento"),
     numeroDocumento: formData.get("numeroDocumento"),
@@ -77,7 +76,6 @@ export async function createColaborador(
   }
 
   const data = parsed.data;
-
   const emailNormalizado = data.email.trim().toLowerCase();
   const usernameVisual = data.username.trim();
   const usernameNormalizado = normalizeLoginUsername(usernameVisual);
@@ -85,7 +83,6 @@ export async function createColaborador(
   const telefonoNormalizado = data.telefono?.trim()
     ? data.telefono.trim().toUpperCase()
     : null;
-
   const primerNombre = data.primerNombre.trim().toUpperCase();
   const segundoNombre = data.segundoNombre?.trim()
     ? data.segundoNombre.trim().toUpperCase()
@@ -94,15 +91,12 @@ export async function createColaborador(
   const segundoApellido = data.segundoApellido?.trim()
     ? data.segundoApellido.trim().toUpperCase()
     : null;
-
-  const nombreCompleto = [
+  const nombreCompleto = getColaboradorDisplayName({
     primerNombre,
     segundoNombre,
     primerApellido,
     segundoApellido,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  });
 
   const [documentoExistente, usernameExistente, emailExistente, rolExistente] =
     await Promise.all([
@@ -120,7 +114,7 @@ export async function createColaborador(
       }),
       prisma.rol.findUnique({
         where: { id: data.rolId },
-        select: { id: true, estado: true },
+        select: { id: true, estado: true, nombre: true },
       }),
     ]);
 
@@ -137,9 +131,9 @@ export async function createColaborador(
   if (usernameExistente) {
     return {
       success: false,
-      message: "Ese username ya está en uso.",
+      message: "Ese username ya esta en uso.",
       errors: {
-        username: ["Ese username ya está en uso."],
+        username: ["Ese username ya esta en uso."],
       },
     };
   }
@@ -147,9 +141,9 @@ export async function createColaborador(
   if (emailExistente) {
     return {
       success: false,
-      message: "Ese correo ya está registrado.",
+      message: "Ese correo ya esta registrado.",
       errors: {
-        email: ["Ese correo ya está registrado."],
+        email: ["Ese correo ya esta registrado."],
       },
     };
   }
@@ -157,7 +151,7 @@ export async function createColaborador(
   if (!rolExistente || rolExistente.estado !== "ACTIVO") {
     return {
       success: false,
-      message: "El rol seleccionado no es válido.",
+      message: "El rol seleccionado no es valido.",
       errors: {
         rolId: ["Debes seleccionar un rol activo."],
       },
@@ -168,7 +162,6 @@ export async function createColaborador(
 
   try {
     const requestHeaders = await headers();
-    
     const authUserResult = await auth.api.createUser({
       body: {
         email: emailNormalizado,
@@ -183,44 +176,58 @@ export async function createColaborador(
       headers: requestHeaders,
     });
 
-    console.log(
-      "RESULTADO createUser Better Auth:",
-      JSON.stringify(authUserResult, null, 2),
-    );
-
-    authUserId =
-      authUserResult?.user?.id ??
-      authUserResult?.id ??
-      null;
+    authUserId = authUserResult?.user?.id ?? authUserResult?.id ?? null;
 
     if (!authUserId) {
-      throw new Error("Better Auth creó el usuario pero no devolvió un id válido.");
+      throw new Error("Better Auth creo el usuario pero no devolvio un id valido.");
     }
 
-    try {
-  await prisma.usuario.create({
-    data: {
-      authUserId,
-      tipoDocumento: data.tipoDocumento,
-      numeroDocumento: numeroDocumentoNormalizado,
-      primerNombre,
-      segundoNombre,
-      primerApellido,
-      segundoApellido,
-      telefono: telefonoNormalizado,
-      email: emailNormalizado,
-      username: usernameNormalizado,
-      passwordHash: "AUTH_MANAGED",
-      estado: data.estado,
-      rolId: data.rolId,
-    },
-  });
-} catch (dbError) {
-  console.error("ERROR CREANDO USUARIO INTERNO EN TABLA Usuario:");
-  console.error(dbError);
+    await prisma.$transaction(async (tx) => {
+      const createdColaborador = await tx.usuario.create({
+        data: {
+          authUserId,
+          tipoDocumento: data.tipoDocumento,
+          numeroDocumento: numeroDocumentoNormalizado,
+          primerNombre,
+          segundoNombre,
+          primerApellido,
+          segundoApellido,
+          telefono: telefonoNormalizado,
+          email: emailNormalizado,
+          username: usernameNormalizado,
+          passwordHash: "AUTH_MANAGED",
+          estado: data.estado,
+          rolId: data.rolId,
+        },
+        select: {
+          id: true,
+          authUserId: true,
+          tipoDocumento: true,
+          numeroDocumento: true,
+          primerNombre: true,
+          segundoNombre: true,
+          primerApellido: true,
+          segundoApellido: true,
+          telefono: true,
+          email: true,
+          username: true,
+          estado: true,
+          rolId: true,
+        },
+      });
 
-  throw dbError;
-}
+      await createAuditEntry(tx, {
+        usuarioId: actor.id,
+        accion: "COLABORADORES_CREAR",
+        entidad: "Colaborador",
+        entidadId: createdColaborador.id,
+        detalle: `Se creo el colaborador ${nombreCompleto}.`,
+        valorNuevoJson: buildColaboradorAuditSnapshot({
+          ...createdColaborador,
+          rolNombre: rolExistente.nombre,
+        }),
+      });
+    });
 
     revalidatePath("/colaboradores");
     revalidatePath("/colaboradores/nuevo");
@@ -249,9 +256,9 @@ export async function createColaborador(
       if (message.includes("email")) {
         return {
           success: false,
-          message: "Ese correo ya está registrado en autenticación.",
+          message: "Ese correo ya esta registrado en autenticacion.",
           errors: {
-            email: ["Ese correo ya está registrado en autenticación."],
+            email: ["Ese correo ya esta registrado en autenticacion."],
           },
         };
       }
@@ -259,9 +266,9 @@ export async function createColaborador(
       if (message.includes("username")) {
         return {
           success: false,
-          message: "Ese username ya está registrado en autenticación.",
+          message: "Ese username ya esta registrado en autenticacion.",
           errors: {
-            username: ["Ese username ya está registrado en autenticación."],
+            username: ["Ese username ya esta registrado en autenticacion."],
           },
         };
       }

@@ -1,11 +1,13 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppPageHeader } from "@/components/shared/layout/app-page-header";
+import { AccessDeniedState } from "@/components/shared/page/access-denied-state";
 import { AdmisionesFlow } from "@/features/admisiones/components/admisiones-flow";
+import { AdmisionesRecientesCard } from "@/features/admisiones/components/admisiones-recientes-card";
 import { getAdmisionPageContext } from "@/features/admisiones/lib/get-admision-page-context";
 import { getCurrentUsuario } from "@/lib/current-user";
-import { hasPermission, RBAC_PERMISSION } from "@/lib/rbac";
+import { hasAnyPermission, RBAC_PERMISSION } from "@/lib/rbac";
 
 function getStatusTone(active: boolean) {
   return active
@@ -20,7 +22,13 @@ export default async function AdmisionesPage() {
     redirect("/login");
   }
 
-  if (!hasPermission(usuario, RBAC_PERMISSION.ADMISION_CREATE)) {
+  const canAccessAdmisiones = hasAnyPermission(usuario, [
+    RBAC_PERMISSION.ADMISION_VIEW,
+    RBAC_PERMISSION.ADMISION_CREATE,
+    RBAC_PERMISSION.ADMISION_CANCEL,
+  ]);
+
+  if (!canAccessAdmisiones) {
     return (
       <main className="min-h-screen bg-transparent">
         <div className="flex flex-col gap-5">
@@ -30,22 +38,10 @@ export default async function AdmisionesPage() {
             description="Busca o registra pacientes y prepara el cobro de la atencion en un flujo guiado."
           />
 
-          <section className="rounded-[24px] border border-destructive/20 bg-destructive/5 p-5 shadow-[0_16px_36px_-30px_color-mix(in_oklab,var(--destructive)_35%,transparent)]">
-            <h3 className="text-base font-semibold text-destructive">
-              No tienes acceso al flujo de admisiones
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Tu perfil actual no tiene permisos para registrar pacientes o cobrar admisiones.
-            </p>
-            <div className="mt-4">
-              <Link
-                href="/"
-                className="inline-flex rounded-2xl border border-border/70 px-4 py-2 text-sm font-medium transition hover:bg-secondary/60"
-              >
-                Volver al inicio
-              </Link>
-            </div>
-          </section>
+          <AccessDeniedState
+            title="No tienes acceso al flujo de admisiones"
+            description="Tu perfil actual no tiene permisos para consultar o gestionar admisiones."
+          />
         </div>
       </main>
     );
@@ -55,7 +51,7 @@ export default async function AdmisionesPage() {
 
   const hasSesionOperativa = Boolean(context.sesionOperativa);
   const hasJornadaCajaActiva = Boolean(context.jornadaCaja);
-  const canStartAdmision = hasSesionOperativa && hasJornadaCajaActiva;
+  const canOperateOnCurrentJornada = hasSesionOperativa && hasJornadaCajaActiva;
 
   return (
     <main className="min-h-screen bg-transparent">
@@ -87,7 +83,7 @@ export default async function AdmisionesPage() {
         {!hasSesionOperativa ? (
           <section className="rounded-[24px] border border-destructive/20 bg-destructive/5 p-5 shadow-[0_16px_36px_-30px_color-mix(in_oklab,var(--destructive)_35%,transparent)]">
             <h3 className="text-base font-semibold text-destructive">
-              Debes seleccionar una caja antes de admitir pacientes
+              Debes seleccionar una caja antes de operar admisiones
             </h3>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Primero inicia una sesion operativa desde el dashboard principal.
@@ -109,8 +105,7 @@ export default async function AdmisionesPage() {
               La sesion esta activa, pero la caja no esta lista
             </h3>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Para continuar con admisiones, la caja actual debe tener una
-              jornada abierta o reabierta.
+              Para continuar con admisiones, la caja actual debe tener una jornada abierta o reabierta.
             </p>
             <div className="mt-4">
               <Link
@@ -123,10 +118,32 @@ export default async function AdmisionesPage() {
           </section>
         ) : null}
 
-        <AdmisionesFlow
-          canStartAdmision={canStartAdmision}
-          contratos={context.contratos}
-          servicios={context.servicios}
+        {!context.canCreateAdmision ? (
+          <section className="rounded-[24px] border border-border/70 bg-card/90 p-5 shadow-[0_16px_36px_-30px_color-mix(in_oklab,var(--foreground)_25%,transparent)]">
+            <h3 className="text-base font-semibold text-foreground">
+              Tu perfil no registra nuevas admisiones
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Puedes consultar la jornada actual
+              {context.canCancelAdmision
+                ? " y anular admisiones registradas cuando sea necesario."
+                : "."}
+              {" "}
+              Si tambien necesitas registrar pacientes y cobros, activa el permiso correspondiente en Seguridad.
+            </p>
+          </section>
+        ) : (
+          <AdmisionesFlow
+            canStartAdmision={canOperateOnCurrentJornada}
+            contratos={context.contratos}
+            servicios={context.servicios}
+          />
+        )}
+
+        <AdmisionesRecientesCard
+          items={context.recentAdmissions}
+          canCancelAdmision={context.canCancelAdmision}
+          canOperateOnCurrentJornada={canOperateOnCurrentJornada}
         />
       </div>
     </main>

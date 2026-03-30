@@ -5,14 +5,19 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 
+import { createAuditEntry } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
 
+import {
+  buildColaboradorAuditSnapshot,
+  getColaboradorDisplayName,
+} from "./colaborador-audit";
 import { normalizeLoginUsername } from "./normalize-login-username";
 
 const updateColaboradorSchema = z.object({
-  id: z.coerce.number().int().positive("Colaborador inválido."),
+  id: z.coerce.number().int().positive("Colaborador invalido."),
   tipoDocumento: z.enum(["CC", "CE", "TI", "RC", "PASAPORTE", "NIT", "OTRO"]),
   numeroDocumento: z.string().trim().min(5, "El documento es obligatorio."),
   primerNombre: z.string().trim().min(2, "El primer nombre es obligatorio."),
@@ -24,7 +29,7 @@ const updateColaboradorSchema = z.object({
     .string()
     .trim()
     .min(1, "El correo es obligatorio.")
-    .email("El correo no es válido."),
+    .email("El correo no es valido."),
   username: z.string().trim().min(3, "El username es obligatorio."),
   rolId: z.coerce.number().int().positive("Debes seleccionar un rol."),
   estado: z.enum(["ACTIVO", "INACTIVO", "BLOQUEADO"]),
@@ -40,10 +45,11 @@ export async function updateColaborador(
   _prevState: UpdateColaboradorActionState,
   formData: FormData,
 ): Promise<UpdateColaboradorActionState> {
-  await requirePermission(
+  const actor = await requirePermission(
     RBAC_PERMISSION.COLLABORATOR_MANAGE,
     "No tienes permiso para gestionar colaboradores.",
   );
+
   const parsed = updateColaboradorSchema.safeParse({
     id: formData.get("id"),
     tipoDocumento: formData.get("tipoDocumento"),
@@ -68,7 +74,6 @@ export async function updateColaborador(
   }
 
   const data = parsed.data;
-
   const emailNormalizado = data.email.trim().toLowerCase();
   const usernameVisual = data.username.trim();
   const usernameNormalizado = normalizeLoginUsername(usernameVisual);
@@ -76,7 +81,6 @@ export async function updateColaborador(
   const telefonoNormalizado = data.telefono?.trim()
     ? data.telefono.trim().toUpperCase()
     : null;
-
   const primerNombre = data.primerNombre.trim().toUpperCase();
   const segundoNombre = data.segundoNombre?.trim()
     ? data.segundoNombre.trim().toUpperCase()
@@ -85,23 +89,20 @@ export async function updateColaborador(
   const segundoApellido = data.segundoApellido?.trim()
     ? data.segundoApellido.trim().toUpperCase()
     : null;
-
-  const nombreCompleto = [
+  const nombreCompleto = getColaboradorDisplayName({
     primerNombre,
     segundoNombre,
     primerApellido,
     segundoApellido,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  });
 
   if (!usernameNormalizado) {
     return {
       success: false,
-      message: "El username no es válido.",
+      message: "El username no es valido.",
       errors: {
         username: [
-          "Usa solo letras, números, punto o guion bajo. No uses tildes ni eñe.",
+          "Usa solo letras, numeros, punto o guion bajo. No uses tildes ni ene.",
         ],
       },
     };
@@ -116,7 +117,26 @@ export async function updateColaborador(
   ] = await Promise.all([
     prisma.usuario.findUnique({
       where: { id: data.id },
-      select: { id: true, authUserId: true },
+      select: {
+        id: true,
+        authUserId: true,
+        tipoDocumento: true,
+        numeroDocumento: true,
+        primerNombre: true,
+        segundoNombre: true,
+        primerApellido: true,
+        segundoApellido: true,
+        telefono: true,
+        email: true,
+        username: true,
+        estado: true,
+        rolId: true,
+        rol: {
+          select: {
+            nombre: true,
+          },
+        },
+      },
     }),
     prisma.usuario.findUnique({
       where: { numeroDocumento: numeroDocumentoNormalizado },
@@ -132,7 +152,7 @@ export async function updateColaborador(
     }),
     prisma.rol.findUnique({
       where: { id: data.rolId },
-      select: { id: true, estado: true },
+      select: { id: true, estado: true, nombre: true },
     }),
   ]);
 
@@ -147,7 +167,7 @@ export async function updateColaborador(
     return {
       success: false,
       message:
-        "Este colaborador no está vinculado a Better Auth. Primero hay que vincularlo.",
+        "Este colaborador no esta vinculado a Better Auth. Primero hay que vincularlo.",
     };
   }
 
@@ -164,9 +184,9 @@ export async function updateColaborador(
   if (usernameExistente && usernameExistente.id !== data.id) {
     return {
       success: false,
-      message: "Ese username ya está en uso.",
+      message: "Ese username ya esta en uso.",
       errors: {
-        username: ["Ese username ya está en uso."],
+        username: ["Ese username ya esta en uso."],
       },
     };
   }
@@ -174,9 +194,9 @@ export async function updateColaborador(
   if (emailExistente && emailExistente.id !== data.id) {
     return {
       success: false,
-      message: "Ese correo ya está registrado.",
+      message: "Ese correo ya esta registrado.",
       errors: {
-        email: ["Ese correo ya está registrado."],
+        email: ["Ese correo ya esta registrado."],
       },
     };
   }
@@ -184,12 +204,17 @@ export async function updateColaborador(
   if (!rolExistente || rolExistente.estado !== "ACTIVO") {
     return {
       success: false,
-      message: "El rol seleccionado no es válido.",
+      message: "El rol seleccionado no es valido.",
       errors: {
         rolId: ["Debes seleccionar un rol activo."],
       },
     };
   }
+
+  const previousSnapshot = buildColaboradorAuditSnapshot({
+    ...colaboradorActual,
+    rolNombre: colaboradorActual.rol.nombre,
+  });
 
   try {
     const authData: Record<string, string> = {
@@ -207,22 +232,49 @@ export async function updateColaborador(
       headers: await headers(),
     });
 
-    await prisma.usuario.update({
-      where: { id: data.id },
-      data: {
-        tipoDocumento: data.tipoDocumento,
-        numeroDocumento: numeroDocumentoNormalizado,
-        primerNombre,
-        segundoNombre,
-        primerApellido,
-        segundoApellido,
-        telefono: telefonoNormalizado,
-        email: emailNormalizado,
-        username: usernameNormalizado,
-        passwordHash: "AUTH_MANAGED",
-        estado: data.estado,
-        rolId: data.rolId,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.usuario.update({
+        where: { id: data.id },
+        data: {
+          tipoDocumento: data.tipoDocumento,
+          numeroDocumento: numeroDocumentoNormalizado,
+          primerNombre,
+          segundoNombre,
+          primerApellido,
+          segundoApellido,
+          telefono: telefonoNormalizado,
+          email: emailNormalizado,
+          username: usernameNormalizado,
+          passwordHash: "AUTH_MANAGED",
+          estado: data.estado,
+          rolId: data.rolId,
+        },
+      });
+
+      await createAuditEntry(tx, {
+        usuarioId: actor.id,
+        accion: "COLABORADORES_ACTUALIZAR",
+        entidad: "Colaborador",
+        entidadId: data.id,
+        detalle: `Se actualizo el colaborador ${nombreCompleto}.`,
+        valorAnteriorJson: previousSnapshot,
+        valorNuevoJson: buildColaboradorAuditSnapshot({
+          id: data.id,
+          authUserId: colaboradorActual.authUserId,
+          tipoDocumento: data.tipoDocumento,
+          numeroDocumento: numeroDocumentoNormalizado,
+          primerNombre,
+          segundoNombre,
+          primerApellido,
+          segundoApellido,
+          telefono: telefonoNormalizado,
+          email: emailNormalizado,
+          username: usernameNormalizado,
+          estado: data.estado,
+          rolId: data.rolId,
+          rolNombre: rolExistente.nombre,
+        }),
+      });
     });
 
     revalidatePath("/colaboradores");
@@ -239,10 +291,10 @@ export async function updateColaborador(
       if (message.includes("username")) {
         return {
           success: false,
-          message: "Ese username no es válido o ya existe en Better Auth.",
+          message: "Ese username no es valido o ya existe en Better Auth.",
           errors: {
             username: [
-              "Usa solo letras, números, punto o guion bajo. No uses tildes ni eñe.",
+              "Usa solo letras, numeros, punto o guion bajo. No uses tildes ni ene.",
             ],
           },
         };

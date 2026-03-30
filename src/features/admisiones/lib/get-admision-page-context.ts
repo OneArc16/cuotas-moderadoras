@@ -1,5 +1,10 @@
-﻿import { prisma } from "@/lib/prisma";
-import { requirePermission, RBAC_PERMISSION } from "@/lib/rbac";
+import { getCurrentUsuario } from "@/lib/current-user";
+import { prisma } from "@/lib/prisma";
+import {
+  hasAnyPermission,
+  hasPermission,
+  RBAC_PERMISSION,
+} from "@/lib/rbac";
 
 type AdmisionPageContext = {
   usuario: {
@@ -7,6 +12,8 @@ type AdmisionPageContext = {
     nombreCompleto: string;
     username: string;
   };
+  canCreateAdmision: boolean;
+  canCancelAdmision: boolean;
   sesionOperativa: null | {
     id: number;
     fechaOperativa: Date;
@@ -40,6 +47,25 @@ type AdmisionPageContext = {
     id: number;
     codigo: string | null;
     nombre: string;
+  }>;
+  recentAdmissions: Array<{
+    id: number;
+    fechaHora: string;
+    estado: "REGISTRADA" | "ANULADA";
+    pacienteNombreSnapshot: string;
+    pacienteDocumentoSnapshot: string;
+    servicioNombreSnapshot: string;
+    contratoNombreSnapshot: string;
+    categoriaAfiliacionNombreSnapshot: string | null;
+    tipoCobroSnapshot: "CUOTA_MODERADORA" | "PARTICULAR";
+    valorFinalCobrado: string;
+    metodoPagoSnapshot: string | null;
+    referenciaPagoSnapshot: string | null;
+    observacion: string | null;
+    motivoAnulacion: string | null;
+    anuladaAt: string | null;
+    anuladaPorUsuarioNombre: string | null;
+    anuladaPorUsername: string | null;
   }>;
 };
 
@@ -76,11 +102,24 @@ type ContratoAccumulator = {
 };
 
 export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
-  const usuario = await requirePermission(
-    RBAC_PERMISSION.ADMISION_CREATE,
-    "No tienes permiso para acceder al flujo de admisiones.",
-  );
+  const usuario = await getCurrentUsuario();
 
+  if (!usuario) {
+    throw new Error("No se pudo validar la sesion actual.");
+  }
+
+  const canAccessAdmisiones = hasAnyPermission(usuario, [
+    RBAC_PERMISSION.ADMISION_VIEW,
+    RBAC_PERMISSION.ADMISION_CREATE,
+    RBAC_PERMISSION.ADMISION_CANCEL,
+  ]);
+
+  if (!canAccessAdmisiones) {
+    throw new Error("No tienes permiso para acceder al modulo de admisiones.");
+  }
+
+  const canCreateAdmision = hasPermission(usuario, RBAC_PERMISSION.ADMISION_CREATE);
+  const canCancelAdmision = hasPermission(usuario, RBAC_PERMISSION.ADMISION_CANCEL);
   const now = new Date();
 
   const [sesionOperativa, servicios, tarifasActivas] = await Promise.all([
@@ -206,6 +245,42 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
       })
     : null;
 
+  const recentAdmissions = jornadaCaja
+    ? await prisma.admision.findMany({
+        where: {
+          jornadaCajaId: jornadaCaja.id,
+        },
+        orderBy: [{ fechaHora: "desc" }, { id: "desc" }],
+        take: 12,
+        select: {
+          id: true,
+          fechaHora: true,
+          estado: true,
+          pacienteNombreSnapshot: true,
+          pacienteDocumentoSnapshot: true,
+          servicioNombreSnapshot: true,
+          contratoNombreSnapshot: true,
+          categoriaAfiliacionNombreSnapshot: true,
+          tipoCobroSnapshot: true,
+          valorFinalCobrado: true,
+          metodoPagoSnapshot: true,
+          referenciaPagoSnapshot: true,
+          observacion: true,
+          motivoAnulacion: true,
+          anuladaAt: true,
+          anuladaPorUsuario: {
+            select: {
+              primerNombre: true,
+              segundoNombre: true,
+              primerApellido: true,
+              segundoApellido: true,
+              username: true,
+            },
+          },
+        },
+      })
+    : [];
+
   const contratosMap = new Map<number, ContratoAccumulator>();
 
   for (const tarifa of tarifasActivas) {
@@ -277,6 +352,8 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
       username: usuario.username,
       nombreCompleto: buildFullName(usuario),
     },
+    canCreateAdmision,
+    canCancelAdmision,
     sesionOperativa,
     jornadaCaja: jornadaCaja
       ? {
@@ -291,5 +368,27 @@ export async function getAdmisionPageContext(): Promise<AdmisionPageContext> {
       : null,
     contratos,
     servicios,
+    recentAdmissions: recentAdmissions.map((admision) => ({
+      id: admision.id,
+      fechaHora: admision.fechaHora.toISOString(),
+      estado: admision.estado,
+      pacienteNombreSnapshot: admision.pacienteNombreSnapshot,
+      pacienteDocumentoSnapshot: admision.pacienteDocumentoSnapshot,
+      servicioNombreSnapshot: admision.servicioNombreSnapshot,
+      contratoNombreSnapshot: admision.contratoNombreSnapshot,
+      categoriaAfiliacionNombreSnapshot:
+        admision.categoriaAfiliacionNombreSnapshot,
+      tipoCobroSnapshot: admision.tipoCobroSnapshot,
+      valorFinalCobrado: admision.valorFinalCobrado.toString(),
+      metodoPagoSnapshot: admision.metodoPagoSnapshot,
+      referenciaPagoSnapshot: admision.referenciaPagoSnapshot,
+      observacion: admision.observacion,
+      motivoAnulacion: admision.motivoAnulacion,
+      anuladaAt: admision.anuladaAt?.toISOString() ?? null,
+      anuladaPorUsuarioNombre: admision.anuladaPorUsuario
+        ? buildFullName(admision.anuladaPorUsuario)
+        : null,
+      anuladaPorUsername: admision.anuladaPorUsuario?.username ?? null,
+    })),
   };
 }

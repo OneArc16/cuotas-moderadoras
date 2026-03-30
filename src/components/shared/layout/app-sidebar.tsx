@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -41,7 +41,7 @@ const OPERACION_ITEMS: NavItem[] = [
     label: "Admisiones",
     shortLabel: "AD",
     description: "Recepcion y cobro",
-    permission: RBAC_PERMISSION.ADMISION_CREATE,
+    permission: RBAC_PERMISSION.ADMISION_VIEW,
   },
   {
     href: "/caja",

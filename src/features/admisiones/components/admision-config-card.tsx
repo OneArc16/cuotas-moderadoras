@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { AdmisionPosSummary } from "@/features/admisiones/components/admision-pos-summary";
@@ -238,6 +239,7 @@ export function AdmisionConfigCard({
   const [observacion, setObservacion] = useState("");
   const [isTarifaPending, startTarifaTransition] = useTransition();
   const [isRegisterPending, startRegisterTransition] = useTransition();
+  const router = useRouter();
 
   const contratoSeleccionado = useMemo(
     () => contratos.find((item) => String(item.id) === contratoId) ?? null,
@@ -434,9 +436,10 @@ export function AdmisionConfigCard({
         return;
       }
 
-      toast.success("Admisión registrada correctamente");
+      toast.success("Admision registrada correctamente");
       setAdmisionStatus({ kind: "idle" });
       onAdmisionRegistered();
+      router.refresh();
     });
   }
 
