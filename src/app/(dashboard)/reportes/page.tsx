@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppPageHeader } from "@/components/shared/layout/app-page-header";
 import { AccessDeniedState } from "@/components/shared/page/access-denied-state";
+import { ReportesCharts } from "@/features/reportes/components/reportes-charts";
 import { ReportesFilters } from "@/features/reportes/components/reportes-filters";
 import { getReportesPageData } from "@/features/reportes/lib/get-reportes-page-data";
 import { getCurrentUsuario } from "@/lib/current-user";
@@ -120,28 +121,6 @@ export default async function ReportesPage({
               </span>
             </>
           }
-          stats={[
-            {
-              label: "Admisiones vigentes",
-              value: String(data.stats.admisionesRegistradas),
-              helper: "Registros activos dentro del periodo seleccionado.",
-            },
-            {
-              label: "Admisiones anuladas",
-              value: String(data.stats.admisionesAnuladas),
-              helper: "Anulaciones registradas con reverso operativo.",
-            },
-            {
-              label: "Recaudo neto",
-              value: formatCurrency(data.stats.recaudoNeto),
-              helper: "Entradas menos salidas en movimientos del periodo.",
-            },
-            {
-              label: "Cajas con movimiento",
-              value: String(data.stats.cajasConMovimiento),
-              helper: "Cajas incluidas en las jornadas filtradas.",
-            },
-          ]}
         />
 
         <section className="rounded-[28px] border border-border/80 bg-card/95 p-5 shadow-[0_18px_40px_-28px_color-mix(in_oklab,var(--foreground)_35%,transparent)] sm:p-6">
@@ -218,6 +197,12 @@ export default async function ReportesPage({
             <p className="mt-2 text-sm text-muted-foreground">Nequi, Daviplata, transferencias y tarjetas.</p>
           </div>
         </section>
+
+        <ReportesCharts
+          metodoSummaries={data.metodoSummaries}
+          cajaSummaries={data.cajaSummaries}
+          servicioSummaries={data.servicioSummaries}
+        />
 
         <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-[28px] border border-border/80 bg-card/95 p-5 shadow-[0_18px_40px_-28px_color-mix(in_oklab,var(--foreground)_35%,transparent)] sm:p-6">
